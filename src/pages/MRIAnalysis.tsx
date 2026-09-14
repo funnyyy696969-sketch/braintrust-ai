@@ -115,6 +115,8 @@ export default function MRIAnalysis() {
       error: null,
       prediction: null,
       preprocessingInfo: null,
+      currentStage: "upload",
+      stageMessage: "Upload a scan to begin",
     });
   };
 
@@ -164,9 +166,8 @@ export default function MRIAnalysis() {
       const data = await response.json();
 
       if (data.success) {
-        setState({
-          imagePreview: state.imagePreview,
-          originalFile: state.originalFile,
+        setState((prev) => ({
+          ...prev,
           isProcessing: false,
           currentStage: "complete",
           stageMessage: "Analysis complete",
@@ -181,7 +182,7 @@ export default function MRIAnalysis() {
             normalization: data.preprocessing_info?.normalization || "ImageNet",
           },
           error: null,
-        });
+        }));
       } else {
         throw new Error(data.error || "Prediction failed");
       }

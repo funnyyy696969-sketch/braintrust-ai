@@ -1,5 +1,3 @@
-import { supabase, getSupabase } from './supabase';
-
 export interface User {
   id: string;
   email: string | null;
@@ -9,67 +7,29 @@ export interface User {
 }
 
 export async function getUser(): Promise<User | null> {
-  if (!supabase) return null;
-  const { data: { user }, error } = await supabase.auth.getUser();
-  if (error || !user) return null;
-
-  return {
-    id: user.id,
-    email: user.email ?? null,
-    name: user.user_metadata?.name ?? null,
-    avatarUrl: user.user_metadata?.avatar_url ?? null,
-    createdAt: user.created_at,
-  };
+  // No Supabase - return null (user management handled locally)
+  return null;
 }
 
 export async function signInWithEmail(email: string, password: string) {
-  if (!supabase) throw new Error('Supabase not configured');
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email,
-    password,
-  });
-  return { data, error };
+  return { data: null, error: new Error('Supabase not configured') };
 }
 
 export async function signUpWithEmail(email: string, password: string, name?: string) {
-  if (!supabase) throw new Error('Supabase not configured');
-  const { data, error } = await supabase.auth.signUp({
-    email,
-    password,
-    options: {
-      data: { name },
-    },
-  });
-  return { data, error };
+  return { data: null, error: new Error('Supabase not configured') };
 }
 
 export async function signInWithOtp(email: string) {
-  if (!supabase) throw new Error('Supabase not configured');
-  const { data, error } = await supabase.auth.signInWithOtp({
-    email,
-    options: {
-      emailRedirectTo: `${window.location.origin}/auth`,
-    },
-  });
-  return { data, error };
+  return { data: null, error: new Error('Supabase not configured') };
 }
 
 export async function signOut() {
-  if (!supabase) throw new Error('Supabase not configured');
-  const { error } = await supabase.auth.signOut();
-  return { error };
+  return { error: null };
 }
 
 export async function updateUserProfile(userId: string, updates: {
   name?: string;
   avatarUrl?: string;
 }) {
-  if (!supabase) throw new Error('Supabase not configured');
-  const { data, error } = await supabase
-    .from('profiles')
-    .update(updates)
-    .eq('id', userId)
-    .select()
-    .single();
-  return { data, error };
+  return { data: null, error: new Error('Supabase not configured') };
 }

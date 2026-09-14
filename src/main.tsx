@@ -7,9 +7,12 @@ import { createRoot } from "react-dom/client";
 import { BrowserRouter, Route, Routes, useLocation } from "react-router";
 import "./index.css";
 
-import { SupabaseAuthProvider, useSupabaseAuth } from "@/components/SupabaseProvider";
+import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/lib/supabase";
 import { isSupabaseConfigured } from "@/lib/supabase";
+import { SupabaseAuthProvider } from "@/components/SupabaseProvider";
+
+
 
 // Lazy load route components for better code splitting
 const Landing = lazy(() => import("./pages/Landing.tsx"));
@@ -111,8 +114,9 @@ class RootErrorBoundary extends React.Component<
 }
 
 
-const SupabaseAuthWrapper = ({ children }: { children: React.ReactNode }) => {
-  const { user, isLoading } = useSupabaseAuth();
+// Simple auth wrapper using Convex auth
+function AuthWrapper({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated, isLoading } = useAuth();
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
@@ -132,10 +136,10 @@ const SupabaseAuthWrapper = ({ children }: { children: React.ReactNode }) => {
   return (
     <>
       {children}
-      {user && <Toaster />}
+      <Toaster />
     </>
   );
-};
+}
 
 
 createRoot(document.getElementById("root")!).render(
@@ -149,7 +153,7 @@ createRoot(document.getElementById("root")!).render(
           <RouteSyncer />
           <Suspense fallback={<RouteLoading />}>
             <Routes>
-              <Route path="/" element={isSupabaseConfigured() ? <Landing /> : <div className="min-h-screen flex items-center justify-center bg-white"><div className="text-neutral-500">Supabase not configured</div></div>} />
+              <Route path="/" element={<Landing />} />
               <Route
                 path="/auth"
                 element={<AuthPage redirectAfterAuth="/dashboard" />}
@@ -157,81 +161,81 @@ createRoot(document.getElementById("root")!).render(
               <Route
                 path="/dashboard"
                 element={
-                  <SupabaseAuthWrapper>
+                  <SupabaseAuthProvider>
                     <RequireAuth>
                       <Dashboard />
                     </RequireAuth>
-                  </SupabaseAuthWrapper>
+                  </SupabaseAuthProvider>
                 }
               />
               <Route
                 path="/mri-analysis"
                 element={
-                  <SupabaseAuthWrapper>
+                  <SupabaseAuthProvider>
                     <RequireAuth>
                       <MRIAnalysis />
                     </RequireAuth>
-                  </SupabaseAuthWrapper>
+                  </SupabaseAuthProvider>
                 }
               />
               <Route
                 path="/explainability"
                 element={
-                  <SupabaseAuthWrapper>
+                  <SupabaseAuthProvider>
                     <RequireAuth>
                       <Explainability />
                     </RequireAuth>
-                  </SupabaseAuthWrapper>
+                  </SupabaseAuthProvider>
                 }
               />
               <Route
                 path="/perturbation"
                 element={
-                  <SupabaseAuthWrapper>
+                  <SupabaseAuthProvider>
                     <RequireAuth>
                       <Perturbation />
                     </RequireAuth>
-                  </SupabaseAuthWrapper>
+                  </SupabaseAuthProvider>
                 }
               />
               <Route
                 path="/output-fragility"
                 element={
-                  <SupabaseAuthWrapper>
+                  <SupabaseAuthProvider>
                     <RequireAuth>
                       <OutputFragility />
                     </RequireAuth>
-                  </SupabaseAuthWrapper>
+                  </SupabaseAuthProvider>
                 }
               />
               <Route
                 path="/evaluation"
                 element={
-                  <SupabaseAuthWrapper>
+                  <SupabaseAuthProvider>
                     <RequireAuth>
                       <Evaluation />
                     </RequireAuth>
-                  </SupabaseAuthWrapper>
+                  </SupabaseAuthProvider>
                 }
               />
               <Route
                 path="/documentation"
                 element={
-                  <SupabaseAuthWrapper>
+                  <SupabaseAuthProvider>
                     <RequireAuth>
                       <Documentation />
                     </RequireAuth>
-                  </SupabaseAuthWrapper>
+                  </SupabaseAuthProvider>
                 }
               />
               <Route
                 path="/settings"
                 element={
-                  <SupabaseAuthWrapper>
+                  <SupabaseAuthProvider>
                     <RequireAuth>
                       <Settings />
                     </RequireAuth>
-                  </SupabaseAuthWrapper>
+                  </SupabaseAuthProvider>
                 }
               />
               <Route path="*" element={<NotFound />} />

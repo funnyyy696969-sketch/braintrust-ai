@@ -1,6 +1,5 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { supabase, getSupabase } from '@/lib/supabase';
-import { getUser } from '@/lib/supabase-auth';
+// Simple auth placeholder (no Supabase)
+import { createContext, useContext, ReactNode } from 'react';
 import type { User } from '@/lib/supabase-auth';
 
 interface SupabaseAuthContextType {
@@ -16,102 +15,16 @@ interface SupabaseAuthContextType {
 const SupabaseAuthContext = createContext<SupabaseAuthContextType | null>(null);
 
 export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-
-  const fetchUser = async () => {
-    if (!supabase) {
-      setIsLoading(false);
-      return;
-    }
-    try {
-      const userData = await getUser();
-      setUser(userData);
-    } catch (error) {
-      console.error('Error fetching user:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchUser();
-
-    if (!supabase) {
-      setIsLoading(false);
-      return;
-    }
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async () => {
-      await fetchUser();
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  const signInWithEmail = async (email: string, password: string) => {
-    try {
-      if (!supabase) throw new Error('Supabase not configured');
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) throw error;
-      await fetchUser();
-      return { success: true };
-    } catch (error) {
-      return { success: false, error: error as Error };
-    }
-  };
-
-  const signUpWithEmail = async (email: string, password: string, name?: string) => {
-    try {
-      if (!supabase) throw new Error('Supabase not configured');
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: { data: { name } },
-      });
-      if (error) throw error;
-      await fetchUser();
-      return { success: true };
-    } catch (error) {
-      return { success: false, error: error as Error };
-    }
-  };
-
-  const signInWithOtp = async (email: string) => {
-    try {
-      if (!supabase) throw new Error('Supabase not configured');
-      const { error } = await supabase.auth.signInWithOtp({
-        email,
-        options: { emailRedirectTo: `${window.location.origin}/auth` },
-      });
-      if (error) throw error;
-      return { success: true };
-    } catch (error) {
-      return { success: false, error: error as Error };
-    }
-  };
-
-  const signOut = async () => {
-    try {
-      if (!supabase) throw new Error('Supabase not configured');
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
-      setUser(null);
-      return { success: true };
-    } catch (error) {
-      return { success: false, error: error as Error };
-    }
-  };
-
   return (
     <SupabaseAuthContext.Provider
       value={{
-        user,
-        isLoading,
-        signInWithEmail,
-        signUpWithEmail,
-        signInWithOtp,
-        signOut,
-        refetchUser: fetchUser,
+        user: null,
+        isLoading: false,
+        signInWithEmail: async () => ({ success: false, error: new Error('Not configured') }),
+        signUpWithEmail: async () => ({ success: false, error: new Error('Not configured') }),
+        signInWithOtp: async () => ({ success: false, error: new Error('Not configured') }),
+        signOut: async () => ({ success: true }),
+        refetchUser: async () => {},
       }}
     >
       {children}
@@ -127,5 +40,4 @@ export function useSupabaseAuth() {
   return context;
 }
 
-// Compat export for useAuth hook
 export const useAuth = useSupabaseAuth;

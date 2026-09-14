@@ -8,17 +8,16 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   InputOTP,
   InputOTPGroup,
   InputOTPSlot,
 } from "@/components/ui/input-otp";
-import { Brain, ArrowRight, Loader2, Mail, User, Shield, LogOut } from "lucide-react";
+
+import { useAuth } from "@/hooks/use-auth";
+import { ArrowRight, Loader2, Mail, UserX, Brain } from "lucide-react";
 import { Suspense, useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
-import { supabase } from "@/lib/supabase";
-import { getUser } from "@/lib/supabase-auth";
 
 interface AuthProps {
   redirectAfterAuth?: string;
@@ -34,90 +33,41 @@ function resolveRedirectAfterAuth(
   return fallback;
 }
 
-export default function Auth({ redirectAfterAuth }: AuthProps = {}) {
+function Auth({ redirectAfterAuth }: AuthProps = {}) {
+  const { isLoading: authLoading, isAuthenticated, signIn } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const redirect = resolveRedirectAfterAuth(
     searchParams.get("returnTo"),
     redirectAfterAuth,
   );
-
-  const [step, setStep] = useState<"signIn" | "signUp" | { email: string }>("signIn");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [name, setName] = useState("");
+  const [step, setStep] = useState<"signIn" | { email: string }>("signIn");
   const [otp, setOtp] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [user, setUser] = useState<{ email: string | null; name?: string | null } | null>(null);
 
   useEffect(() => {
-    // Check if already signed in
-    const checkUser = async () => {
-      if (!supabase) {
-        setUser(null);
-        return;
-      }
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
-        const userData = await getUser();
-        setUser(userData);
-        navigate(redirect);
-      }
-    };
-    checkUser();
-
-    // Listen for auth changes
-    if (!supabase) return;
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event) => {
-      if (event === "SIGNED_IN") {
-        const userData = await getUser();
-        setUser(userData);
-        navigate(redirect);
-      } else if (event === "SIGNED_OUT") {
-        setUser(null);
-        setStep("signIn");
-        navigate("/");
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, [navigate, redirect]);
-
-  const handleEmailSignIn = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setIsLoading(true);
-    setError(null);
-    try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email: email || "",
-        password: password || "",
-      });
-      if (error) throw error;
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to sign in");
-    } finally {
-      setIsLoading(false);
+    if (!authLoading && isAuthenticated) {
+      navigate(redirect);
     }
-  };
+  }, [authLoading, isAuthenticated, navigate, redirect]);
 
-  const handleEmailSignUp = async (event: React.FormEvent<HTMLFormElement>) => {
+  const handleEmailSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setIsLoading(true);
     setError(null);
     try {
-      const { error } = await supabase.auth.signUp({
-        email: email || "",
-        password: password || "",
-        options: {
-          data: { name },
-        },
-      });
-      if (error) throw error;
-      setStep({ email: email || "" });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to sign up");
-    } finally {
+      const formData = new FormData(event.currentTarget);
+      await signIn("email-otp", formData);
+      setStep({ email: formData.get("email") as string });
+      setIsLoading(false);
+    } catch (error) {
+      console.error("Email sign-in error:", error);
+      setError(
+        error instanceof Error
+          ? error.message
+          : "Failed to send verification code. Please try again.",
+      );
       setIsLoading(false);
     }
   };
@@ -127,20 +77,14 @@ export default function Auth({ redirectAfterAuth }: AuthProps = {}) {
     setIsLoading(true);
     setError(null);
     try {
-      if (typeof step === "object" && step !== null && "email" in step) {
-        const { error } = await supabase.auth.verifyOtp({
-          email: step.email,
-          token: otp,
-          type: "email",
-        });
-        if (error) throw error;
-        navigate(redirect);
-      }
-    } catch (err) {
+      const formData = new FormData(event.currentTarget);
+      await signIn("email-otp", formData);
+      navigate(redirect);
+    } catch (error) {
+      console.error("OTP verification error:", error);
       setError("The verification code you entered is incorrect.");
-      setOtp("");
-    } finally {
       setIsLoading(false);
+      setOtp("");
     }
   };
 
@@ -148,44 +92,24 @@ export default function Auth({ redirectAfterAuth }: AuthProps = {}) {
     setIsLoading(true);
     setError(null);
     try {
-      // For guest access, we'll just navigate without auth
-      navigate("/dashboard");
-    } catch (err) {
-      setError(`Failed to continue as guest`);
-    } finally {
+      await signIn("anonymous");
+      navigate(redirect);
+    } catch (error) {
+      console.error("Guest login error:", error);
+      setError(`Failed to sign in as guest: ${error instanceof Error ? error.message : 'Unknown error'}`);
       setIsLoading(false);
     }
-  };
-
-  const handleSignOut = async () => {
-    if (!supabase) return;
-    await supabase.auth.signOut();
-    setUser(null);
-    navigate("/");
   };
 
   return (
     <div className="min-h-screen bg-white flex flex-col">
       {/* Header */}
       <header className="border-b border-neutral-200">
-        <div className="max-w-md mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-md bg-[#12355B] flex items-center justify-center">
-              <Brain className="w-4 h-4 text-white" />
-            </div>
-            <span className="font-semibold text-[#12355B]">BrainTrust AI</span>
+        <div className="max-w-md mx-auto px-6 py-4 flex items-center gap-3">
+          <div className="w-8 h-8 rounded-md bg-[#12355B] flex items-center justify-center">
+            <Brain className="w-4 h-4 text-white" />
           </div>
-          {user && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleSignOut}
-              className="text-neutral-600 gap-2"
-            >
-              <LogOut className="w-4 h-4" />
-              Sign Out
-            </Button>
-          )}
+          <span className="font-semibold text-[#12355B]">BrainTrust AI</span>
         </div>
       </header>
 
@@ -194,225 +118,83 @@ export default function Auth({ redirectAfterAuth }: AuthProps = {}) {
         <div className="w-full max-w-md">
           <div className="text-center mb-8">
             <h1 className="text-2xl font-semibold text-[#12355B]">
-              {user ? "Welcome back" : "Welcome to BrainTrust AI"}
+              Welcome to BrainTrust AI
             </h1>
             <p className="text-neutral-600 mt-2">
-              {user
-                ? "You are signed in to your workspace"
-                : "Sign in to continue your analysis"}
+              Sign in to access the MRI analysis dashboard
             </p>
           </div>
 
           <Card className="border-neutral-200 shadow-none">
-            {step === "signIn" && !user ? (
+            {step === "signIn" ? (
               <>
-                <form onSubmit={handleEmailSignIn}>
+                <form onSubmit={handleEmailSubmit}>
                   <CardContent className="pt-6">
-                    <div className="space-y-4">
-                      <div>
-                        <Label htmlFor="email" className="text-neutral-700">Email</Label>
-                        <div className="relative mt-1.5">
-                          <Mail className="absolute left-3 top-3 h-4 w-4 text-neutral-400" />
-                          <Input
-                            id="email"
-                            type="email"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            placeholder="name@example.com"
-                            className="pl-9"
-                            disabled={isLoading}
-                            required
-                          />
-                        </div>
+                    <div className="relative flex items-center gap-2">
+                      <div className="relative flex-1">
+                        <Mail className="absolute left-3 top-3 h-4 w-4 text-neutral-400" />
+                        <Input
+                          name="email"
+                          placeholder="name@example.com"
+                          type="email"
+                          className="pl-9"
+                          disabled={isLoading}
+                          required
+                        />
                       </div>
-                      <div>
-                        <Label htmlFor="password" className="text-neutral-700">Password</Label>
-                        <div className="relative mt-1.5">
-                          <Input
-                            id="password"
-                            type="password"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            placeholder="Enter your password"
-                            className="pl-3"
-                            disabled={isLoading}
-                            required
-                          />
-                        </div>
-                      </div>
+                      <Button
+                        type="submit"
+                        variant="outline"
+                        size="icon"
+                        disabled={isLoading}
+                        className="border-neutral-300"
+                      >
+                        {isLoading ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <ArrowRight className="h-4 w-4" />
+                        )}
+                      </Button>
                     </div>
                     {error && (
                       <p className="mt-3 text-sm text-red-500">{error}</p>
                     )}
-                    <div className="mt-6 flex gap-3">
-                      <Button
-                        type="submit"
-                        className="flex-1 bg-[#12355B] hover:bg-[#1a4570]"
-                        disabled={isLoading}
-                      >
-                        {isLoading ? (
-                          <>
-                            <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                            Signing in...
-                          </>
-                        ) : (
-                          "Sign In"
-                        )}
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => setStep("signUp")}
-                        className="border-neutral-300"
-                        disabled={isLoading}
-                      >
-                        Create account
-                      </Button>
+                    <div className="mt-6 relative">
+                      <div className="absolute inset-0 flex items-center">
+                        <span className="w-full border-t border-neutral-200" />
+                      </div>
+                      <div className="relative flex justify-center text-xs uppercase">
+                        <span className="bg-white px-2 text-neutral-500">
+                          Or
+                        </span>
+                      </div>
                     </div>
-                    <div className="mt-4 text-center">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        className="text-neutral-600"
-                        onClick={handleGuestLogin}
-                        disabled={isLoading}
-                      >
-                        Continue as guest
-                      </Button>
-                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full mt-4 border-neutral-300"
+                      onClick={handleGuestLogin}
+                      disabled={isLoading}
+                    >
+                      <UserX className="mr-2 h-4 w-4" />
+                      Continue as Guest
+                    </Button>
                   </CardContent>
                 </form>
               </>
-            ) : step === "signUp" && !user ? (
-              <>
-                <form onSubmit={handleEmailSignUp}>
-                  <CardContent className="pt-6">
-                    <div className="space-y-4">
-                      <div>
-                        <Label htmlFor="name" className="text-neutral-700">Name (optional)</Label>
-                        <div className="relative mt-1.5">
-                          <User className="absolute left-3 top-3 h-4 w-4 text-neutral-400" />
-                          <Input
-                            id="name"
-                            type="text"
-                            value={name}
-                            onChange={(e) => setName(e.target.value)}
-                            placeholder="Your name"
-                            className="pl-9"
-                            disabled={isLoading}
-                          />
-                        </div>
-                      </div>
-                      <div>
-                        <Label htmlFor="signup-email" className="text-neutral-700">Email</Label>
-                        <div className="relative mt-1.5">
-                          <Mail className="absolute left-3 top-3 h-4 w-4 text-neutral-400" />
-                          <Input
-                            id="signup-email"
-                            type="email"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            placeholder="name@example.com"
-                            className="pl-9"
-                            disabled={isLoading}
-                            required
-                          />
-                        </div>
-                      </div>
-                      <div>
-                        <Label htmlFor="signup-password" className="text-neutral-700">Password</Label>
-                        <div className="relative mt-1.5">
-                          <Input
-                            id="signup-password"
-                            type="password"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            placeholder="Create a password"
-                            className="pl-3"
-                            disabled={isLoading}
-                            required
-                            minLength={6}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                    {error && (
-                      <p className="mt-3 text-sm text-red-500">{error}</p>
-                    )}
-                    <div className="mt-6 flex gap-3">
-                      <Button
-                        type="submit"
-                        className="flex-1 bg-[#12355B] hover:bg-[#1a4570]"
-                        disabled={isLoading || password.length < 6}
-                      >
-                        {isLoading ? (
-                          <>
-                            <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                            Creating account...
-                          </>
-                        ) : (
-                          "Create account"
-                        )}
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => setStep("signIn")}
-                        className="border-neutral-300"
-                        disabled={isLoading}
-                      >
-                        Back to sign in
-                      </Button>
-                    </div>
-                  </CardContent>
-                </form>
-              </>
-            ) : step === "signIn" && user ? (
-              <div className="py-8 text-center">
-                <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-[#12355B]/10 flex items-center justify-center">
-                  <Shield className="w-8 h-8 text-[#12355B]" />
-                </div>
-                <p className="text-neutral-600">
-                  You are signed in as <strong>{user?.email}</strong>
-                </p>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="mt-4 border-neutral-300"
-                  onClick={() => navigate(redirect)}
-                >
-                  Go to dashboard
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-              </div>
-            ) : step === "signUp" && user ? (
-              <div className="py-8 text-center">
-                <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-[#12355B]/10 flex items-center justify-center">
-                  <Shield className="w-8 h-8 text-[#12355B]" />
-                </div>
-                <p className="text-neutral-600">
-                  Account created for <strong>{user?.name || user?.email}</strong>
-                </p>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="mt-4 border-neutral-300"
-                  onClick={() => navigate(redirect)}
-                >
-                  Go to dashboard
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-              </div>
             ) : (
               <>
-                <CardHeader className="text-center mt-4">
-                  <CardTitle>Check your email</CardTitle>
+                <CardHeader className="text-center pt-6">
+                  <CardTitle className="text-lg">Check your email</CardTitle>
                   <CardDescription>
-                    We've sent a verification code to {(typeof step === "object" && step !== null && "email" in step) ? step.email : "your email"}
+                    We've sent a code to {step.email}
                   </CardDescription>
                 </CardHeader>
                 <form onSubmit={handleOtpSubmit}>
-                  <CardContent className="pb-4">
+                  <CardContent className="pb-6">
+                    <input type="hidden" name="email" value={step.email} />
+                    <input type="hidden" name="code" value={otp} />
+
                     <div className="flex justify-center">
                       <InputOTP
                         value={otp}
@@ -493,7 +275,7 @@ export default function Auth({ redirectAfterAuth }: AuthProps = {}) {
   );
 }
 
-export function AuthPage(props: AuthProps) {
+export default function AuthPage(props: AuthProps) {
   return (
     <Suspense>
       <Auth {...props} />

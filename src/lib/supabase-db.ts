@@ -1,5 +1,5 @@
-import { supabase } from './supabase';
-
+// Supabase not used in this version
+// Keeping this file for future integration if needed
 export interface AnalysisSession {
   id: string;
   user_id: string;
@@ -45,83 +45,18 @@ export interface AnalysisSession {
   updated_at: string;
 }
 
-export async function createAnalysisSession(
-  userId: string,
-  data: Partial<AnalysisSession> = {}
-): Promise<AnalysisSession | null> {
-  if (!supabase) {
-    console.error('Supabase not configured');
-    return null;
-  }
-  const { data: session, error } = await supabase
-    .from('analysis_sessions')
-    .insert({
-      user_id: userId,
-      status: 'pending',
-      ...data,
-    })
-    .select()
-    .single();
-
-  if (error) {
-    console.error('Error creating analysis session:', error);
-    return null;
-  }
-
-  return session as AnalysisSession;
+export async function createAnalysisSession(userId: string, data: Partial<AnalysisSession> = {}): Promise<AnalysisSession | null> {
+  return null;
 }
 
 export async function getAnalysisSessions(userId: string): Promise<AnalysisSession[]> {
-  if (!supabase) return [];
-  const { data, error } = await supabase
-    .from('analysis_sessions')
-    .select('*')
-    .eq('user_id', userId)
-    .order('created_at', { ascending: false });
-
-  if (error) {
-    console.error('Error fetching analysis sessions:', error);
-    return [];
-  }
-
-  return data as AnalysisSession[];
+  return [];
 }
 
 export async function getAnalysisSession(id: string): Promise<AnalysisSession | null> {
-  if (!supabase) return null;
-  const { data, error } = await supabase
-    .from('analysis_sessions')
-    .select('*')
-    .eq('id', id)
-    .single();
-
-  if (error) {
-    console.error('Error fetching analysis session:', error);
-    return null;
-  }
-
-  return data as AnalysisSession;
+  return null;
 }
 
-export async function updateAnalysisSession(
-  id: string,
-  updates: Partial<AnalysisSession>
-): Promise<AnalysisSession | null> {
-  if (!supabase) return null;
-  const { data, error } = await supabase
-    .from('analysis_sessions')
-    .update({
-      ...updates,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', id)
-    .select()
-    .single();
-
-  if (error) {
-    console.error('Error updating analysis session:', error);
-    return null;
-  }
-
-  return data as AnalysisSession;
+export async function updateAnalysisSession(id: string, updates: Partial<AnalysisSession>): Promise<AnalysisSession | null> {
+  return null;
 }
