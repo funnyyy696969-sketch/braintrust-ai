@@ -148,48 +148,42 @@ braintrust-ai/
 
 ## Demo Mode
 
-This application runs in demo mode by default. In demo mode:
-- Predictions are simulated for testing
-- Grad-CAM visualizations are synthetic
-- Perturbation effects are demonstration-only
-- Evaluation metrics use simulated data
+Right now the app runs in demo mode. That means:
+- Predictions are simulated so you can see how the interface works
+- Visualizations are generated on the fly for demonstration
+- Real model inference requires integrating trained PyTorch models
 
-To use real model inference, integrate trained PyTorch models and set `DEMO_MODE=false` in the backend configuration.
+To switch to real inference, you would integrate trained models and adjust the
+backend configuration.
 
 ## Design
 
-This project uses a **Minimalism theme** with:
-- Clean, spacious layout
-- Near-monochrome color palette
-- Precise alignment
-- Subtle dividers
-- Intentional white space
+The look is clean and restrained. Nothing flashy. Everything is aligned carefully,
+with room to breathe and just enough color to guide your eye.
 
-### Color Palette
-- White background: `#FFFFFF`
-- Deep navy: `#12355B` (navigation, headings)
-- Medical teal: `#008C95` (AI workflow)
-- XAI violet: `#6C4AB6` (Grad-CAM)
-- Perturbation orange: `#E58A2B` (perturbation)
-- Validation green: `#2E8B57` (success states)
-- Light blue-gray: `#F3F6F9` (cards)
-- Charcoal text: `#263238`
+### Colors
+- White background
+- Deep navy for headings and navigation (`#12355B`)
+- Teal for the AI workflow (`#008C95`)
+- Violet for Grad-CAM and explainability (`#6C4AB6`)
+- Orange for perturbation and warnings (`#E58A2B`)
+- Green for completed checks (`#2E8B57`)
+- Soft gray cards (`#F3F6F9`)
+- Dark charcoal text (`#263238`)
 
-## Research Context
+## A Note on What This Is
 
-This application is part of a B.Tech Computer Science and Engineering project focused on:
-- Evaluating AI model robustness in medical imaging
-- Understanding output fragility under perturbation
-- Developing interpretable AI systems for healthcare
+BrainTrust AI is a personal research environment. It is built for understanding how
+AI models behave when they analyze brain MRI scans, not for clinical diagnosis.
 
-**Disclaimer**: This is a research prototype. It is not a clinical diagnostic tool and should not be used for medical decisions.
+The predictions, visualizations, and metrics you see are experimental. They are useful
+for thinking critically about model reliability, but they are not validated clinical
+tools and should not be used to make decisions about patients.
 
-## License
+If you plan to use these ideas beyond personal exploration, bring in qualified
+professionals and validate everything properly.
 
-MIT License - See LICENSE file for details.
+---
 
-## Acknowledgments
-
-- Built with React, FastAPI, and Tailwind CSS
-- Uses Convex for authentication
-- Inspired by research in explainable AI and medical image analysis
+Built with React, FastAPI, Tailwind CSS, and Convex.
+MIT License.
