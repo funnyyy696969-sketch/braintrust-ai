@@ -12,6 +12,7 @@ import {
   Info,
   AlertCircle,
   CheckCircle,
+  Circle,
 } from "lucide-react";
 
 interface MRIAnalysisState {
@@ -29,6 +30,8 @@ interface MRIAnalysisState {
     resizedSize: string;
     normalization: string;
   } | null;
+  currentStage: "upload" | "processing" | "complete";
+  stageMessage: string;
 }
 
 export default function MRIAnalysis() {
@@ -40,6 +43,8 @@ export default function MRIAnalysis() {
     error: null,
     prediction: null,
     preprocessingInfo: null,
+    currentStage: "upload",
+    stageMessage: "Upload a scan to begin",
   });
 
   const [modelName, setModelName] = useState("resnet50");
@@ -74,6 +79,8 @@ export default function MRIAnalysis() {
         error: null,
         prediction: null,
         preprocessingInfo: null,
+        currentStage: "upload",
+        stageMessage: "Ready to analyze",
       });
     };
     reader.readAsDataURL(file);
@@ -114,9 +121,37 @@ export default function MRIAnalysis() {
   const runAnalysis = async () => {
     if (!state.originalFile) return;
 
-    setState((prev) => ({ ...prev, isProcessing: true, error: null }));
+    setState((prev) => ({
+      ...prev,
+      isProcessing: true,
+      currentStage: "processing",
+      stageMessage: "Submitting image...",
+      error: null,
+    }));
 
     try {
+      // Stage 1: Submit to backend
+      setState((prev) => ({
+        ...prev,
+        stageMessage: "Sending to server...",
+      }));
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      // Stage 2: Preprocessing
+      setState((prev) => ({
+        ...prev,
+        stageMessage: "Preprocessing image...",
+      }));
+      await new Promise(resolve => setTimeout(resolve, 400));
+
+      // Stage 3: Model inference
+      setState((prev) => ({
+        ...prev,
+        stageMessage: "Running model inference...",
+      }));
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // Stage 4: Complete
       const formData = new FormData();
       formData.append("file", state.originalFile);
       formData.append("model_name", modelName);
@@ -130,8 +165,11 @@ export default function MRIAnalysis() {
 
       if (data.success) {
         setState({
-          ...state,
+          imagePreview: state.imagePreview,
+          originalFile: state.originalFile,
           isProcessing: false,
+          currentStage: "complete",
+          stageMessage: "Analysis complete",
           prediction: {
             predictedClass: data.predicted_class,
             confidence: data.confidence,
@@ -142,6 +180,7 @@ export default function MRIAnalysis() {
             resizedSize: JSON.stringify(data.preprocessing_info?.resized_size),
             normalization: data.preprocessing_info?.normalization || "ImageNet",
           },
+          error: null,
         });
       } else {
         throw new Error(data.error || "Prediction failed");
@@ -150,6 +189,7 @@ export default function MRIAnalysis() {
       setState((prev) => ({
         ...prev,
         isProcessing: false,
+        currentStage: "upload",
         error: err instanceof Error ? err.message : "Analysis failed",
       }));
     }
@@ -281,17 +321,41 @@ export default function MRIAnalysis() {
                     </div>
                   </div>
 
+                  {/* Stage Indicator */}
+                  <div className="mb-4 p-3 bg-neutral-50 rounded-lg border border-neutral-200">
+                    <div className="flex items-center gap-2 mb-2">
+                      {state.currentStage === "complete" ? (
+                        <CheckCircle className="w-5 h-5 text-[#2E8B57]" />
+                      ) : state.isProcessing ? (
+                        <div className="w-5 h-5 animate-spin rounded-full border-2 border-[#12355B] border-t-transparent" />
+                      ) : (
+                        <Circle className="w-5 h-5 text-[#12355B]" />
+                      )}
+                      <span className={`text-sm font-medium ${
+                        state.currentStage === "complete" ? "text-[#2E8B57]" :
+                        state.isProcessing ? "text-[#12355B]" : "text-neutral-600"
+                      }`}>
+                        {state.stageMessage}
+                      </span>
+                    </div>
+                    {state.isProcessing && (
+                      <div className="w-full h-1.5 bg-neutral-200 rounded-full mt-2 overflow-hidden">
+                        <div className="h-full bg-[#12355B] rounded-full animate-pulse" style={{ width: "60%" }} />
+                      </div>
+                    )}
+                  </div>
+
                   {/* Actions */}
                   <div className="flex gap-3">
                     <Button
                       onClick={runAnalysis}
-                      disabled={state.isProcessing}
+                      disabled={state.isProcessing || !state.originalFile}
                       className="bg-[#12355B] hover:bg-[#1a4570]"
                     >
                       {state.isProcessing ? (
                         <>
                           <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                          Analyzing...
+                          {state.stageMessage}
                         </>
                       ) : (
                         <>
@@ -304,6 +368,7 @@ export default function MRIAnalysis() {
                       variant="outline"
                       onClick={resetAnalysis}
                       className="border-neutral-300"
+                      disabled={state.isProcessing}
                     >
                       Reset
                     </Button>

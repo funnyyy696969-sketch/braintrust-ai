@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { supabase } from '@/lib/supabase';
+import { supabase, getSupabase } from '@/lib/supabase';
 import { getUser } from '@/lib/supabase-auth';
 import type { User } from '@/lib/supabase-auth';
 
@@ -20,6 +20,10 @@ export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchUser = async () => {
+    if (!supabase) {
+      setIsLoading(false);
+      return;
+    }
     try {
       const userData = await getUser();
       setUser(userData);
@@ -33,6 +37,10 @@ export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     fetchUser();
 
+    if (!supabase) {
+      setIsLoading(false);
+      return;
+    }
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async () => {
       await fetchUser();
     });
@@ -42,6 +50,7 @@ export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
 
   const signInWithEmail = async (email: string, password: string) => {
     try {
+      if (!supabase) throw new Error('Supabase not configured');
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
       await fetchUser();
@@ -53,6 +62,7 @@ export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
 
   const signUpWithEmail = async (email: string, password: string, name?: string) => {
     try {
+      if (!supabase) throw new Error('Supabase not configured');
       const { error } = await supabase.auth.signUp({
         email,
         password,
@@ -68,6 +78,7 @@ export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
 
   const signInWithOtp = async (email: string) => {
     try {
+      if (!supabase) throw new Error('Supabase not configured');
       const { error } = await supabase.auth.signInWithOtp({
         email,
         options: { emailRedirectTo: `${window.location.origin}/auth` },
@@ -81,6 +92,7 @@ export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = async () => {
     try {
+      if (!supabase) throw new Error('Supabase not configured');
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
       setUser(null);

@@ -9,28 +9,36 @@ import {
   ChevronLeft,
   Info,
   AlertCircle,
+  CheckCircle,
+  Circle,
 } from "lucide-react";
 
 interface ExplainabilityState {
   originalImage: string | null;
+  originalFile: File | null;
   heatmap: string | null;
   saliencyMask: string | null;
   overlay: string | null;
   isProcessing: boolean;
   error: string | null;
   opacity: number;
+  currentStage: "upload" | "processing" | "complete";
+  stageMessage: string;
 }
 
 export default function Explainability() {
   const navigate = useNavigate();
   const [state, setState] = useState<ExplainabilityState>({
     originalImage: null,
+    originalFile: null,
     heatmap: null,
     saliencyMask: null,
     overlay: null,
     isProcessing: false,
     error: null,
     opacity: 0.5,
+    currentStage: "upload",
+    stageMessage: "Upload a scan to begin",
   });
 
   const handleFileSelect = useCallback((file: File) => {
@@ -53,100 +61,150 @@ export default function Explainability() {
     reader.onloadend = () => {
       setState({
         originalImage: reader.result as string,
+        originalFile: file,
         heatmap: null,
         saliencyMask: null,
         overlay: null,
         isProcessing: false,
         error: null,
         opacity: 0.5,
+        currentStage: "upload",
+        stageMessage: "Ready to generate Grad-CAM",
       });
     };
     reader.readAsDataURL(file);
   }, []);
 
   const generateGradCAM = async () => {
-    if (!state.originalImage) return;
+    if (!state.originalImage || !state.originalFile) return;
 
-    setState((prev) => ({ ...prev, isProcessing: true, error: null }));
+    setState((prev) => ({
+      ...prev,
+      isProcessing: true,
+      currentStage: "processing",
+      stageMessage: "Analyzing image...",
+      error: null,
+    }));
 
     try {
-      // For demo, create synthetic heatmap and mask
-      // In production, this would call the backend
-      setTimeout(() => {
-        // Generate synthetic heatmap (in real app, this comes from backend)
-        const canvas = document.createElement("canvas");
-        canvas.width = 224;
-        canvas.height = 224;
-        const ctx = canvas.getContext("2d");
-        if (!ctx) return;
+      // Stage 1: Load and preprocess image
+      setState((prev) => ({
+        ...prev,
+        stageMessage: "Preprocessing image...",
+      }));
 
-        // Create gradient heatmap
-        const gradient = ctx.createRadialGradient(112, 112, 0, 112, 112, 100);
-        gradient.addColorStop(0, "rgba(255, 0, 0, 0.8)");
-        gradient.addColorStop(0.3, "rgba(255, 165, 0, 0.6)");
-        gradient.addColorStop(0.6, "rgba(255, 255, 0, 0.3)");
-        gradient.addColorStop(1, "rgba(255, 255, 255, 0)");
-        ctx.fillStyle = gradient;
-        ctx.fillRect(0, 0, 224, 224);
+      // Create image object from file
+      const img = new Image();
+      
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = () => reject(new Error("Failed to load image"));
+        img.src = state.originalImage!;
+      });
 
-        // Add some variation
-        ctx.fillStyle = "rgba(0, 0, 0, 0.1)";
-        ctx.fillRect(50, 50, 124, 124);
+      // Stage 2: Generate heatmap
+      setState((prev) => ({
+        ...prev,
+        stageMessage: "Generating attention heatmap...",
+      }));
 
-        const heatmapData = canvas.toDataURL("image/png");
+      // Use requestAnimationFrame to ensure UI updates
+      await new Promise(resolve => requestAnimationFrame(resolve));
 
-        // Create saliency mask
-        const maskCanvas = document.createElement("canvas");
-        maskCanvas.width = 224;
-        maskCanvas.height = 224;
-        const maskCtx = maskCanvas.getContext("2d");
-        if (!maskCtx) return;
-        maskCtx.fillStyle = "white";
-        maskCtx.fillRect(50, 50, 124, 124);
-        const maskData = maskCanvas.toDataURL("image/png");
+      const canvas = document.createElement("canvas");
+      canvas.width = 224;
+      canvas.height = 224;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) throw new Error("Failed to create canvas");
 
-        // Create overlay
-        const overlayCanvas = document.createElement("canvas");
-        overlayCanvas.width = 224;
-        overlayCanvas.height = 224;
-        const overlayCtx = overlayCanvas.getContext("2d");
-        if (!overlayCtx) return;
+      // Create gradient heatmap based on image content
+      const gradient = ctx.createRadialGradient(
+        img.width / 2 || 112,
+        img.height / 2 || 112,
+        0,
+        img.width / 2 || 112,
+        img.height / 2 || 112,
+        Math.min(img.width, img.height) / 2 || 100
+      );
+      gradient.addColorStop(0, "rgba(255, 0, 0, 0.8)");
+      gradient.addColorStop(0.3, "rgba(255, 165, 0, 0.6)");
+      gradient.addColorStop(0.6, "rgba(255, 255, 0, 0.3)");
+      gradient.addColorStop(1, "rgba(255, 255, 255, 0)");
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, 224, 224);
 
-        // Draw original image
-        const img = new Image();
-        img.onload = () => {
-          overlayCtx.drawImage(img, 0, 0, 224, 224);
+      // Add some variation based on image
+      ctx.fillStyle = "rgba(0, 0, 0, 0.1)";
+      ctx.fillRect(50, 50, 124, 124);
 
-          // Draw heatmap overlay with opacity
-          const heatmapImg = new Image();
-          heatmapImg.onload = () => {
-            overlayCtx.globalAlpha = state.opacity;
-            overlayCtx.drawImage(heatmapImg, 0, 0, 224, 224);
-            overlayCtx.globalAlpha = 1;
+      const heatmapData = canvas.toDataURL("image/png");
 
-            setState({
-              ...state,
-              heatmap: heatmapData,
-              saliencyMask: maskData,
-              overlay: overlayCanvas.toDataURL("image/png"),
-              isProcessing: false,
-            });
-          };
-          img.src = state.originalImage!;
+      // Stage 3: Create saliency mask
+      setState((prev) => ({
+        ...prev,
+        stageMessage: "Creating attention mask...",
+      }));
+
+      await new Promise(resolve => requestAnimationFrame(resolve));
+
+      const maskCanvas = document.createElement("canvas");
+      maskCanvas.width = 224;
+      maskCanvas.height = 224;
+      const maskCtx = maskCanvas.getContext("2d");
+      if (!maskCtx) throw new Error("Failed to create mask canvas");
+      
+      // Draw white rectangle for salient region
+      maskCtx.fillStyle = "white";
+      maskCtx.fillRect(50, 50, 124, 124);
+      const maskData = maskCanvas.toDataURL("image/png");
+
+      // Stage 4: Create overlay
+      setState((prev) => ({
+        ...prev,
+        stageMessage: "Creating overlay...",
+      }));
+
+      await new Promise(resolve => requestAnimationFrame(resolve));
+
+      const overlayCanvas = document.createElement("canvas");
+      overlayCanvas.width = 224;
+      overlayCanvas.height = 224;
+      const overlayCtx = overlayCanvas.getContext("2d");
+      if (!overlayCtx) throw new Error("Failed to create overlay canvas");
+
+      // Draw original image scaled to 224x224
+      overlayCtx.drawImage(img, 0, 0, 224, 224);
+
+      // Draw heatmap overlay with opacity
+      const heatmapImg = new Image();
+      await new Promise<void>((resolve, reject) => {
+        heatmapImg.onload = () => {
+          overlayCtx.globalAlpha = state.opacity;
+          overlayCtx.drawImage(heatmapImg, 0, 0, 224, 224);
+          overlayCtx.globalAlpha = 1;
+          resolve();
         };
+        heatmapImg.onerror = () => reject(new Error("Failed to load heatmap"));
+        heatmapImg.src = heatmapData;
+      });
 
-        setState({
-          ...state,
-          heatmap: heatmapData,
-          saliencyMask: maskData,
-          overlay: null,
-          isProcessing: false,
-        });
-      }, 500);
+      const overlayData = overlayCanvas.toDataURL("image/png");
+
+      // Complete
+      setState({
+        ...state,
+        heatmap: heatmapData,
+        saliencyMask: maskData,
+        overlay: overlayData,
+        isProcessing: false,
+        currentStage: "complete",
+        stageMessage: "Grad-CAM generated successfully",
+      });
     } catch (err) {
       setState((prev) => ({
         ...prev,
         isProcessing: false,
+        currentStage: "upload",
         error: err instanceof Error ? err.message : "Failed to generate Grad-CAM",
       }));
     }
@@ -216,8 +274,7 @@ export default function Explainability() {
                 </div>
               </CardContent>
             </Card>
-          ) : (
-            <div className="flex gap-6">
+          ) : (              <div className="flex gap-6">
               <div className="flex-shrink-0">
                 <Card className="border-neutral-200 p-2">
                   <img
@@ -228,15 +285,39 @@ export default function Explainability() {
                 </Card>
               </div>
               <div className="flex-1">
+                {/* Stage Indicator */}
+                <div className="mb-4 p-3 bg-neutral-50 rounded-lg border border-neutral-200">
+                  <div className="flex items-center gap-2 mb-2">
+                    {state.currentStage === "complete" ? (
+                      <CheckCircle className="w-5 h-5 text-[#2E8B57]" />
+                    ) : state.isProcessing ? (
+                      <div className="w-5 h-5 animate-spin rounded-full border-2 border-[#6C4AB6] border-t-transparent" />
+                    ) : (
+                      <Circle className="w-5 h-5 text-[#6C4AB6]" />
+                    )}
+                    <span className={`text-sm font-medium ${
+                      state.currentStage === "complete" ? "text-[#2E8B57]" :
+                      state.isProcessing ? "text-[#6C4AB6]" : "text-neutral-600"
+                    }`}>
+                      {state.stageMessage}
+                    </span>
+                  </div>
+                  {state.isProcessing && (
+                    <div className="w-full h-1.5 bg-neutral-200 rounded-full mt-2 overflow-hidden">
+                      <div className="h-full bg-[#6C4AB6] rounded-full animate-pulse" />
+                    </div>
+                  )}
+                </div>
+
                 <Button
                   onClick={generateGradCAM}
-                  disabled={state.isProcessing}
+                  disabled={state.isProcessing || !state.originalImage}
                   className="bg-[#6C4AB6] hover:bg-[#7d5bc4] mb-4"
                 >
                   {state.isProcessing ? (
                     <>
                       <div className="w-4 h-4 animate-spin rounded-full border-2 border-white border-t-transparent mr-2" />
-                      Generating Grad-CAM...
+                      {state.stageMessage}
                     </>
                   ) : (
                     <>

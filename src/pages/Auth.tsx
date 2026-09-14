@@ -54,6 +54,10 @@ export default function Auth({ redirectAfterAuth }: AuthProps = {}) {
   useEffect(() => {
     // Check if already signed in
     const checkUser = async () => {
+      if (!supabase) {
+        setUser(null);
+        return;
+      }
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
         const userData = await getUser();
@@ -64,6 +68,7 @@ export default function Auth({ redirectAfterAuth }: AuthProps = {}) {
     checkUser();
 
     // Listen for auth changes
+    if (!supabase) return;
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event) => {
       if (event === "SIGNED_IN") {
         const userData = await getUser();
@@ -153,6 +158,7 @@ export default function Auth({ redirectAfterAuth }: AuthProps = {}) {
   };
 
   const handleSignOut = async () => {
+    if (!supabase) return;
     await supabase.auth.signOut();
     setUser(null);
     navigate("/");

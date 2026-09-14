@@ -49,6 +49,10 @@ export async function createAnalysisSession(
   userId: string,
   data: Partial<AnalysisSession> = {}
 ): Promise<AnalysisSession | null> {
+  if (!supabase) {
+    console.error('Supabase not configured');
+    return null;
+  }
   const { data: session, error } = await supabase
     .from('analysis_sessions')
     .insert({
@@ -68,6 +72,7 @@ export async function createAnalysisSession(
 }
 
 export async function getAnalysisSessions(userId: string): Promise<AnalysisSession[]> {
+  if (!supabase) return [];
   const { data, error } = await supabase
     .from('analysis_sessions')
     .select('*')
@@ -83,6 +88,7 @@ export async function getAnalysisSessions(userId: string): Promise<AnalysisSessi
 }
 
 export async function getAnalysisSession(id: string): Promise<AnalysisSession | null> {
+  if (!supabase) return null;
   const { data, error } = await supabase
     .from('analysis_sessions')
     .select('*')
@@ -101,6 +107,7 @@ export async function updateAnalysisSession(
   id: string,
   updates: Partial<AnalysisSession>
 ): Promise<AnalysisSession | null> {
+  if (!supabase) return null;
   const { data, error } = await supabase
     .from('analysis_sessions')
     .update({

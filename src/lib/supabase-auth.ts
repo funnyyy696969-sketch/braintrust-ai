@@ -1,4 +1,4 @@
-import { supabase } from './supabase';
+import { supabase, getSupabase } from './supabase';
 
 export interface User {
   id: string;
@@ -9,6 +9,7 @@ export interface User {
 }
 
 export async function getUser(): Promise<User | null> {
+  if (!supabase) return null;
   const { data: { user }, error } = await supabase.auth.getUser();
   if (error || !user) return null;
 
@@ -22,6 +23,7 @@ export async function getUser(): Promise<User | null> {
 }
 
 export async function signInWithEmail(email: string, password: string) {
+  if (!supabase) throw new Error('Supabase not configured');
   const { data, error } = await supabase.auth.signInWithPassword({
     email,
     password,
@@ -30,6 +32,7 @@ export async function signInWithEmail(email: string, password: string) {
 }
 
 export async function signUpWithEmail(email: string, password: string, name?: string) {
+  if (!supabase) throw new Error('Supabase not configured');
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
@@ -41,6 +44,7 @@ export async function signUpWithEmail(email: string, password: string, name?: st
 }
 
 export async function signInWithOtp(email: string) {
+  if (!supabase) throw new Error('Supabase not configured');
   const { data, error } = await supabase.auth.signInWithOtp({
     email,
     options: {
@@ -51,6 +55,7 @@ export async function signInWithOtp(email: string) {
 }
 
 export async function signOut() {
+  if (!supabase) throw new Error('Supabase not configured');
   const { error } = await supabase.auth.signOut();
   return { error };
 }
@@ -59,6 +64,7 @@ export async function updateUserProfile(userId: string, updates: {
   name?: string;
   avatarUrl?: string;
 }) {
+  if (!supabase) throw new Error('Supabase not configured');
   const { data, error } = await supabase
     .from('profiles')
     .update(updates)

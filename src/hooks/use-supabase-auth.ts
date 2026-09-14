@@ -1,7 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/lib/supabase';
+import { supabase, getSupabase } from '@/lib/supabase';
 import { getUser, signOut as supabaseSignOut } from '@/lib/supabase-auth';
 import type { User } from '@/lib/supabase-auth';
+
+const safeSupabase = () => {
+  const client = getSupabase();
+  return client;
+};
 
 interface UseSupabaseAuthOptions {
   redirectAfterAuth?: string;
@@ -14,6 +19,11 @@ export function useSupabaseAuth(options: UseSupabaseAuthOptions = {}) {
 
   const fetchUser = useCallback(async () => {
     try {
+      if (!supabase) {
+        setUser(null);
+        setIsLoading(false);
+        return;
+      }
       const userData = await getUser();
       setUser(userData);
       setError(null);
@@ -28,6 +38,10 @@ export function useSupabaseAuth(options: UseSupabaseAuthOptions = {}) {
     fetchUser();
 
     // Listen for auth changes
+    if (!supabase) {
+      setIsLoading(false);
+      return;
+    }
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_IN' && session?.user) {
         const userData = await getUser();
@@ -47,6 +61,7 @@ export function useSupabaseAuth(options: UseSupabaseAuthOptions = {}) {
     setIsLoading(true);
     setError(null);
     try {
+      if (!supabase) throw new Error('Supabase not configured');
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -67,6 +82,7 @@ export function useSupabaseAuth(options: UseSupabaseAuthOptions = {}) {
     setIsLoading(true);
     setError(null);
     try {
+      if (!supabase) throw new Error('Supabase not configured');
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -88,6 +104,7 @@ export function useSupabaseAuth(options: UseSupabaseAuthOptions = {}) {
     setIsLoading(true);
     setError(null);
     try {
+      if (!supabase) throw new Error('Supabase not configured');
       const { data, error } = await supabase.auth.signInWithOtp({
         email,
         options: {
@@ -108,7 +125,8 @@ export function useSupabaseAuth(options: UseSupabaseAuthOptions = {}) {
     setIsLoading(true);
     setError(null);
     try {
-      const { error } = await supabaseSignOut();
+      if (!supabase) throw new Error('Supabase not configured');
+      const { error } = await supabase.auth.signOut();
       if (error) throw error;
       setUser(null);
       return { success: true };
