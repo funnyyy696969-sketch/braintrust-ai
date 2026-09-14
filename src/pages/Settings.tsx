@@ -133,8 +133,9 @@ export default function Settings() {
                 />
               </div>
               <p className="text-xs text-neutral-500">
-                Configure the URL of the FastAPI backend server. For local development, use{" "}
-                <code className="bg-neutral-100 px-1 rounded">http://localhost:8000</code>.
+                The Python FastAPI backend (from the research repository) would run here,
+                e.g. <code className="bg-neutral-100 px-1 rounded">http://localhost:8000</code>.
+                Until it is connected, the app runs its analysis locally in demo mode.
               </p>
             </div>
           </CardContent>

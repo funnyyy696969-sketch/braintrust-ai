@@ -4,12 +4,10 @@ import { RequireAuth } from "@/components/RequireAuth";
 import { VlyToolbar } from "../vly-toolbar-readonly.tsx";
 import { ConvexAuthProvider } from "@convex-dev/auth/react";
 import { ConvexReactClient } from "convex/react";
-import React, { StrictMode, useEffect, lazy, Suspense, useState } from "react";
+import React, { StrictMode, useEffect, lazy, Suspense } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, Route, Routes, useLocation } from "react-router";
 import "./index.css";
-
-import { useAuth } from "@/hooks/use-auth";
 
 // Lazy load route components for better code splitting
 const Landing = lazy(() => import("./pages/Landing.tsx"));
@@ -114,35 +112,8 @@ function RouteSyncer() {
 
 const convex = new ConvexReactClient(import.meta.env.VITE_CONVEX_URL as string);
 
-// Auth wrapper component
-function AuthWrapper({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, isLoading } = useAuth();
-  const [ready, setReady] = useState(false);
-
-  useEffect(() => {
-    if (!isLoading) {
-      setReady(true);
-    }
-  }, [isLoading]);
-
-  if (!ready) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-white">
-        <div className="text-neutral-500">Loading...</div>
-      </div>
-    );
-  }
-
-  if (!isAuthenticated) {
-    return null;
-  }
-
-  return (
-    <>
-      {children}
-      <Toaster />
-    </>
-  );
+function protectedRoute(element: React.ReactNode) {
+  return <RequireAuth>{element}</RequireAuth>;
 }
 
 createRoot(document.getElementById("root")!).render(
@@ -161,89 +132,18 @@ createRoot(document.getElementById("root")!).render(
                 path="/auth"
                 element={<AuthPage redirectAfterAuth="/dashboard" />}
               />
-              <Route
-                path="/dashboard"
-                element={
-                  <AuthWrapper>
-                    <RequireAuth>
-                      <Dashboard />
-                    </RequireAuth>
-                  </AuthWrapper>
-                }
-              />
-              <Route
-                path="/mri-analysis"
-                element={
-                  <AuthWrapper>
-                    <RequireAuth>
-                      <MRIAnalysis />
-                    </RequireAuth>
-                  </AuthWrapper>
-                }
-              />
-              <Route
-                path="/explainability"
-                element={
-                  <AuthWrapper>
-                    <RequireAuth>
-                      <Explainability />
-                    </RequireAuth>
-                  </AuthWrapper>
-                }
-              />
-              <Route
-                path="/perturbation"
-                element={
-                  <AuthWrapper>
-                    <RequireAuth>
-                      <Perturbation />
-                    </RequireAuth>
-                  </AuthWrapper>
-                }
-              />
-              <Route
-                path="/output-fragility"
-                element={
-                  <AuthWrapper>
-                    <RequireAuth>
-                      <OutputFragility />
-                    </RequireAuth>
-                  </AuthWrapper>
-                }
-              />
-              <Route
-                path="/evaluation"
-                element={
-                  <AuthWrapper>
-                    <RequireAuth>
-                      <Evaluation />
-                    </RequireAuth>
-                  </AuthWrapper>
-                }
-              />
-              <Route
-                path="/documentation"
-                element={
-                  <AuthWrapper>
-                    <RequireAuth>
-                      <Documentation />
-                    </RequireAuth>
-                  </AuthWrapper>
-                }
-              />
-              <Route
-                path="/settings"
-                element={
-                  <AuthWrapper>
-                    <RequireAuth>
-                      <Settings />
-                    </RequireAuth>
-                  </AuthWrapper>
-                }
-              />
+              <Route path="/dashboard" element={protectedRoute(<Dashboard />)} />
+              <Route path="/mri-analysis" element={protectedRoute(<MRIAnalysis />)} />
+              <Route path="/explainability" element={protectedRoute(<Explainability />)} />
+              <Route path="/perturbation" element={protectedRoute(<Perturbation />)} />
+              <Route path="/output-fragility" element={protectedRoute(<OutputFragility />)} />
+              <Route path="/evaluation" element={protectedRoute(<Evaluation />)} />
+              <Route path="/documentation" element={protectedRoute(<Documentation />)} />
+              <Route path="/settings" element={protectedRoute(<Settings />)} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </Suspense>
+          <Toaster />
         </BrowserRouter>
       </ConvexAuthProvider>
     </RootErrorBoundary>
