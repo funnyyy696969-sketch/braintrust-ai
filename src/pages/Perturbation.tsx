@@ -168,8 +168,8 @@ export default function Perturbation() {
               </svg>
             </button>
             <div>
-              <h1 className="font-semibold text-[#12355B]">Perturbation</h1>
-              <p className="text-xs text-neutral-500">Manifold-Preserving Image Perturbation</p>
+              <h1 className="font-semibold text-[#12355B]">Perturb</h1>
+              <p className="text-xs text-neutral-500">Test how predictions hold up</p>
             </div>
           </div>
           <span className="px-2 py-1 text-xs bg-[#E58A2B]/10 text-[#E58A2B] rounded">
@@ -196,7 +196,7 @@ export default function Perturbation() {
           <CardHeader className="pb-4">
             <div className="flex items-center gap-2">
               <Upload className="w-5 h-5 text-[#E58A2B]" />
-              <CardTitle className="text-lg">Upload MRI Image</CardTitle>
+              <CardTitle className="text-lg">Upload Scan</CardTitle>
             </div>
           </CardHeader>
           <CardContent>
@@ -205,8 +205,7 @@ export default function Perturbation() {
                 className="border-2 border-dashed border-neutral-300 rounded-lg p-8 text-center hover:border-[#E58A2B]/40 transition-colors cursor-pointer"
                 onClick={() => document.getElementById("perturbation-file")?.click()}
               >
-                <Upload className="w-10 h-10 text-neutral-400 mx-auto mb-4" />
-                <p className="text-neutral-600">Drag and drop or click to upload</p>
+                <Upload className="w-10 h-10 text-neutral-400 mx-auto mb-4" />                  <p className="text-neutral-600">Drop a scan here, or click to upload</p>
                 <input
                   id="perturbation-file"
                   type="file"
@@ -231,7 +230,7 @@ export default function Perturbation() {
                 </div>
                 <div className="flex-1">
                   <p className="text-sm font-medium text-neutral-700">
-                    Original MRI loaded successfully
+                    Scan loaded
                   </p>
                   <Button
                     onClick={applyPerturbation}

@@ -33,7 +33,7 @@ export default function Settings() {
             </button>
             <div>
               <h1 className="font-semibold text-[#12355B]">Settings</h1>
-              <p className="text-xs text-neutral-500">Application Configuration</p>
+              <p className="text-xs text-neutral-500">Configure your workspace</p>
             </div>
           </div>
         </div>
@@ -175,8 +175,7 @@ export default function Settings() {
 
         {/* About */}
         <Card className="border-neutral-200 mb-6">
-          <CardHeader className="pb-4">
-            <CardTitle className="text-lg">About BrainTrust AI</CardTitle>
+          <CardHeader className="pb-4">              <CardTitle className="text-lg">About</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-3 text-sm text-neutral-600">
@@ -184,17 +183,13 @@ export default function Settings() {
                 <strong>Version:</strong> 1.0.0 (Development)
               </p>
               <p>
-                <strong>Type:</strong> Research Prototype
-              </p>
-              <p>
-                <strong>Project:</strong> B.Tech Computer Science and Engineering
+                <strong>Type:</strong> Personal research environment
               </p>
               <p>
                 <strong>Framework:</strong> Inference-Time Manifold-Preserving Perturbation
               </p>
               <p className="text-xs text-neutral-500 mt-2">
-                This application is for educational and research purposes only.
-                Not for clinical diagnostic use.
+                For understanding AI, not for diagnosis.
               </p>
             </div>
           </CardContent>

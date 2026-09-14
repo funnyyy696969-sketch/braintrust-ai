@@ -1,17 +1,19 @@
 # BrainTrust AI
 
-**Inference-Time Manifold-Preserving Perturbation: An OOD-Resistant Output Fragility Framework**
+**A Personal Environment for Understanding How AI Models Interpret Brain MRI Scans**
 
-A research prototype for evaluating AI reasoning in brain tumor MRI classification, built as a B.Tech Computer Science and Engineering project.
+BrainTrust AI is a research space where you can upload brain MRI images, see how AI models
+interpret them, and test whether those predictions hold up when the images are perturbed.
+It is built for understanding, not for diagnosis.
 
-## Features
+## What You Can Do
 
-- **MRI Analysis**: Upload brain MRI images and obtain model predictions
-- **Explainable AI**: Visualize Grad-CAM heatmaps to understand model decisions
-- **Perturbation Analysis**: Apply manifold-preserving perturbations to test model robustness
-- **Output Fragility**: Measure prediction fragility using OFI_res metric
-- **Evaluation**: RMA, GAM analysis, and statistical evaluation tools
-- **Research Framework**: Comprehensive documentation and methodology
+- **Analyze MRI Scans**: Upload images and receive AI predictions with confidence scores
+- **Visualize Model Attention**: See exactly where the model is focusing using Grad-CAM heatmaps
+- **Perturb and Test**: Apply realistic changes to tumor regions and measure how predictions change
+- **Measure Fragility**: Quantify prediction stability with OFI_res and statistical analysis
+- **Deep Evaluation**: Run RMA, GAM analysis, and sanity checks to understand model behavior
+- **Learn as You Go**: Built-in documentation explains what everything means and why it matters
 
 ## Technology Stack
 
@@ -39,19 +41,16 @@ A research prototype for evaluating AI reasoning in brain tumor MRI classificati
 
 ## Getting Started
 
-### Prerequisites
+This is a personal project. You are the primary user. Everything is set up so you can
+log in, upload your own scans, and explore what the models do with them.
 
-- Node.js 18+
-- Bun package manager
-- Python 3.11+ (for backend)
-
-### Frontend Setup
+### Running It
 
 ```bash
 # Install dependencies
 bun install
 
-# Run development server
+# Start the frontend
 bun run dev
 ```
 
@@ -71,81 +70,68 @@ pip install -r requirements.txt
 python -m app.main
 ```
 
-The backend will start on `http://localhost:8000`.
+The backend runs on `http://localhost:8000` if you want to use it.
 
-## Project Structure
+### Project Layout
 
 ```
 braintrust-ai/
-├── frontend/                 # React + TypeScript frontend
-│   ├── src/
-│   │   ├── components/      # Reusable UI components
-│   │   ├── pages/           # Application pages
-│   │   ├── services/        # API services
-│   │   └── types/           # TypeScript types
-│   └── ...
-├── backend/                 # FastAPI backend
-│   ├── app/
-│   │   ├── api/            # API routes
-│   │   ├── schemas/        # Pydantic schemas
-│   │   ├── services/       # Business logic
-│   │   └── ...
-│   └── ...
-├── models/                  # Model checkpoints
-├── data/                    # Datasets
+├── frontend/                 # Everything you see in the browser
+│   └── src/
+│       ├── pages/           # The screens you interact with
+│       └── ...
+├── backend/                 # API that powers the analysis
+│   └── app/
+│       ├── api/            # Endpoints
+│       └── ...
 └── ...
 ```
 
 ## Pages
 
 ### Landing Page (`/`)
-- Project overview and introduction
-- Brain MRI-inspired illustration
-- Call-to-action buttons
+- Introduction to what BrainTrust AI is for
+- Getting started call-to-action
+
+### Sign In (`/auth`)
+- Log in to access your workspace
+- Guest access also available
 
 ### Dashboard (`/dashboard`)
-- Session overview and statistics
-- Quick navigation to all features
-- Model status information
+- Your personal workspace
+- Quick access to every part of the app
 
-### MRI Analysis (`/mri-analysis`)
-- Image upload with drag-and-drop
-- Model selection (ResNet50 / EfficientNet)
-- Prediction results with probabilities
-- Preprocessing information
+### Analyze MRI (`/mri-analysis`)
+- Upload a scan
+- Select a model
+- See the prediction and confidence
 
-### Explainability (`/explainability`)
-- Original MRI display
-- Grad-CAM heatmap visualization
-- Saliency mask
-- Adjustable overlay opacity
+### Explain (`/explainability`)
+- View the scan
+- Generate a Grad-CAM heatmap
+- Adjust overlay to see where the model is looking
 
-### Perturbation (`/perturbation`)
-- Original vs perturbed image comparison
-- Multiple perturbation methods
-- Method descriptions and status
+### Perturb (`/perturbation`)
+- See the original scan
+- Apply a perturbation
+- Compare before and after
 
-### Output Fragility (`/output-fragility`)
-- Original and perturbed predictions
-- OFI_res calculation
-- Confidence comparison chart
-- Formula explanation
+### Fragility (`/output-fragility`)
+- See the original prediction
+- See the perturbed prediction
+- Understand how much the model changed its mind
 
-### Evaluation (`/evaluation`)
-- RMA evaluation (with ground truth)
-- GAM analysis
-- Casading weight randomization
-- Export functionality
+### Evaluate (`/evaluation`)
+- Run deeper checks on model behavior
+- RMA, GAM analysis, and sanity checks
 
 ### Documentation (`/documentation`)
-- Comprehensive methodology documentation
-- Research context and limitations
-- Expandable sections for each topic
+- Read about how things work
+- Understand the methods and what to watch out for
 
 ### Settings (`/settings`)
-- Application configuration
-- API endpoint setup
-- Model configuration
+- Configure your workspace
+- Adjust settings to your preferences
 
 ## API Endpoints
 

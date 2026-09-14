@@ -60,43 +60,43 @@ export default function Dashboard() {
   const navCards = [
     {
       icon: <Scan className="w-5 h-5" />,
-      title: "MRI Analysis",
-      description: "Upload an MRI image and get model predictions",
+      title: "Analyze MRI",
+      description: "Upload a scan and get an AI prediction",
       color: "#12355B",
       href: "/mri-analysis",
     },
     {
       icon: <Eye className="w-5 h-5" />,
-      title: "Explainability",
-      description: "Visualize Grad-CAM heatmaps and explanations",
+      title: "Explain",
+      description: "See where the model is focusing its attention",
       color: "#6C4AB6",
       href: "/explainability",
     },
     {
       icon: <Scissors className="w-5 h-5" />,
-      title: "Perturbation",
-      description: "Apply manifold-preserving perturbations",
+      title: "Perturb",
+      description: "Apply realistic changes to test prediction stability",
       color: "#E58A2B",
       href: "/perturbation",
     },
     {
       icon: <AlertTriangle className="w-5 h-5" />,
-      title: "Output Fragility",
-      description: "Measure prediction fragility with OFI_res",
+      title: "Measure Fragility",
+      description: "Quantify how much predictions change under perturbation",
       color: "#2E8B57",
       href: "/output-fragility",
     },
     {
       icon: <LayoutDashboard className="w-5 h-5" />,
-      title: "Evaluation",
-      description: "RMA, GAM analysis, and statistical evaluation",
+      title: "Evaluate",
+      description: "Run RMA, GAM analysis, and statistical checks",
       color: "#12355B",
       href: "/evaluation",
     },
     {
       icon: <FileText className="w-5 h-5" />,
       title: "Documentation",
-      description: "Methodology, API docs, and research context",
+      description: "How the framework works and why it matters",
       color: "#6C4AB6",
       href: "/documentation",
     },
@@ -112,8 +112,8 @@ export default function Dashboard() {
               <Brain className="w-4 h-4 text-white" />
             </div>
             <div>
-              <h1 className="font-semibold text-[#12355B]">BrainTrust AI</h1>
-              <p className="text-xs text-neutral-500">Dashboard</p>
+              <h1 className="font-semibold text-[#12355B]">Your Dashboard</h1>
+              <p className="text-xs text-neutral-500">Analysis workspace</p>
             </div>
           </div>
           <div className="flex items-center gap-4">
@@ -142,10 +142,10 @@ export default function Dashboard() {
             <CardContent className="pt-4 pb-4">
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-lg bg-[#12355B]/10 flex items-center justify-center">
-                  <Plus className="w-4 h-4 text-[#12355B]" />
+                  <Brain className="w-4 h-4 text-[#12355B]" />
                 </div>
                 <div>
-                  <p className="text-xs text-neutral-500">Session Analyses</p>
+                  <p className="text-xs text-neutral-500">Your Analyses</p>
                   <p className="text-xl font-semibold text-[#12355B]">0</p>
                 </div>
               </div>
@@ -171,7 +171,7 @@ export default function Dashboard() {
                   <Scan className="w-4 h-4 text-neutral-500" />
                 </div>
                 <div>
-                  <p className="text-xs text-neutral-500">Last Status</p>
+                  <p className="text-xs text-neutral-500">Last Analysis</p>
                   <p className="text-xl font-semibold text-neutral-600">—</p>
                 </div>
               </div>

@@ -157,7 +157,7 @@ export default function Documentation() {
             </button>
             <div>
               <h1 className="font-semibold text-[#12355B]">Documentation</h1>
-              <p className="text-xs text-neutral-500">Research Framework Documentation</p>
+              <p className="text-xs text-neutral-500">How everything fits together</p>
             </div>
           </div>
           <span className="px-2 py-1 text-xs bg-[#12355B]/10 text-[#12355B] rounded">
@@ -179,9 +179,9 @@ export default function Documentation() {
                   BrainTrust AI Documentation
                 </h2>
                 <p className="text-neutral-600 leading-relaxed">
-                  This documentation provides an overview of the BrainTrust AI research framework,
-                  including the methodology, key concepts, and technical approach for evaluating
-                  AI model robustness in brain tumor MRI classification.
+                  A personal reference for understanding how BrainTrust AI works: what it
+                  does, why it matters, and what to pay attention to when interpreting
+                  results.
                 </p>
               </div>
             </div>
@@ -255,14 +255,12 @@ export default function Documentation() {
         </div>
 
         {/* Research context */}
-        <Card className="border-[#12355B]/20 bg-[#12355B]/5 mt-8">
-          <CardContent className="pt-6">
-            <h3 className="text-lg font-semibold text-[#12355B] mb-3">Research Context</h3>
+        <Card className="border-[#12355B]/20 bg-[#12355B]/5 mt-8">              <CardContent className="pt-6">
+            <h3 className="text-lg font-semibold text-[#12355B] mb-3">About This Project</h3>
             <p className="text-sm text-neutral-600 leading-relaxed mb-4">
-              BrainTrust AI is developed as part of a B.Tech Computer Science and Engineering
-              project focused on evaluating AI reasoning through inference-time perturbation analysis.
-              The framework combines explainable AI, realistic image perturbation, and statistical
-              modeling to assess how brain tumor classification models respond to input variations.
+              BrainTrust AI is a personal research environment. It is built to help you
+              think critically about what AI models actually do when they analyze medical
+              images, and to give you tools to test whether their predictions are reliable.
             </p>
             <div className="flex flex-wrap gap-2">
               <span className="px-2 py-1 text-xs bg-[#12355B]/10 text-[#12355B] rounded">
@@ -289,8 +287,9 @@ export default function Documentation() {
           <div className="flex items-start gap-3">
             <AlertTriangle className="w-5 h-5 text-[#E58A2B] flex-shrink-0 mt-0.5" />
             <p className="text-sm text-neutral-600">
-              This documentation is for educational and research purposes. The methods and
-              metrics described are research prototypes and not validated clinical tools.
+              This documentation exists to help you use these tools thoughtfully. The
+              methods described are research prototypes. They are not validated clinical
+              tools, and they should not be treated as such.
             </p>
           </div>
         </div>

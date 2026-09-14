@@ -103,21 +103,22 @@ export default function Landing() {
           >
             {/* Tagline */}
             <span className="inline-block px-3 py-1 text-xs font-medium text-[#008C95] bg-[#008C95]/10 rounded-full mb-6">
-              B.Tech CSE Research Project
+              Research Framework
             </span>
 
             {/* Title */}
             <h1 className="text-4xl font-semibold text-[#12355B] leading-tight mb-6">
-              Inference-Time Manifold-Preserving
+              Evaluate AI Reasoning in
               <br />
-              <span className="text-[#008C95]">Perturbation Framework</span>
+              <span className="text-[#008C95]">Brain MRI Analysis</span>
             </h1>
 
             {/* Subtitle */}
             <p className="text-lg text-neutral-600 leading-relaxed mb-8 max-w-lg">
-              A research prototype for evaluating AI reasoning in brain tumor MRI classification.
-              Analyze model predictions, visualize Grad-CAM explanations, and measure output fragility
-              under realistic perturbations.
+              Upload brain MRI images and watch how AI models interpret them. Generate
+              visual explanations, apply realistic perturbations to tumor regions, and measure
+              whether the prediction holds up. A personal toolkit for understanding model
+              reliability.
             </p>
 
             {/* CTA Buttons */}
@@ -127,7 +128,7 @@ export default function Landing() {
                 className="bg-[#12355B] text-white hover:bg-[#1a4570] px-6 h-12"
                 onClick={() => navigate("/auth")}
               >
-                Start MRI Analysis
+                Sign In to Begin
                 <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
               <Button
@@ -136,7 +137,7 @@ export default function Landing() {
                 className="border-[#12355B] text-[#12355B] hover:bg-[#12355B]/5 px-6 h-12"
                 onClick={() => navigate("/documentation")}
               >
-                Explore Methodology
+                How It Works
               </Button>
             </div>
 
@@ -144,9 +145,9 @@ export default function Landing() {
             <div className="flex items-start gap-3 p-4 bg-neutral-50 rounded-lg border border-neutral-200">
               <ShieldAlert className="w-5 h-5 text-[#E58A2B] flex-shrink-0 mt-0.5" />
               <p className="text-sm text-neutral-600">
-                <span className="font-medium text-[#E58A2B]">Research Prototype: </span>
-                This application is for educational and research purposes only.
-                It is not a clinical diagnostic tool and should not be used for medical decisions.
+                <span className="font-medium text-[#E58A2B]">For research and evaluation only. </span>
+                This is not a diagnostic tool. Results are experimental and should be
+                interpreted by qualified professionals.
               </p>
             </div>
           </motion.div>
@@ -191,12 +192,12 @@ export default function Landing() {
                 <div className="w-10 h-10 rounded-lg bg-[#12355B]/10 flex items-center justify-center mb-3">
                   <Brain className="w-5 h-5 text-[#12355B]" />
                 </div>
-                <CardTitle className="text-lg">MRI Classification</CardTitle>
+                <CardTitle className="text-lg">Analyze MRI Images</CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-sm text-neutral-600">
-                  Upload brain MRI images and obtain predictions using ResNet50 or EfficientNet
-                  models trained for brain tumor classification.
+                  Upload scans and receive AI predictions with confidence scores. See
+                  which tumor types the model considers most likely.
                 </p>
               </CardContent>
             </Card>
@@ -207,12 +208,12 @@ export default function Landing() {
                 <div className="w-10 h-10 rounded-lg bg-[#6C4AB6]/10 flex items-center justify-center mb-3">
                   <Activity className="w-5 h-5 text-[#6C4AB6]" />
                 </div>
-                <CardTitle className="text-lg">Explainable AI</CardTitle>
+                <CardTitle className="text-lg">Visualize Model Attention</CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-sm text-neutral-600">
-                  Visualize Grad-CAM heatmaps to understand which regions of the MRI
-                  influenced the model's prediction, improving interpretability.
+                  Grad-CAM heatmaps show exactly where the model is focusing its attention.
+                  Understand what drives each prediction.
                 </p>
               </CardContent>
             </Card>
@@ -223,12 +224,12 @@ export default function Landing() {
                 <div className="w-10 h-10 rounded-lg bg-[#E58A2B]/10 flex items-center justify-center mb-3">
                   <ShieldAlert className="w-5 h-5 text-[#E58A2B]" />
                 </div>
-                <CardTitle className="text-lg">Output Fragility</CardTitle>
+                <CardTitle className="text-lg">Test Prediction Reliability</CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-sm text-neutral-600">
-                  Measure how model predictions change under realistic perturbations using
-                  OFI_res and statistical analysis with Generalized Additive Models.
+                  Perturb tumor regions and measure how much predictions change. Quantify
+                  model fragility with OFI_res and statistical analysis.
                 </p>
               </CardContent>
             </Card>
@@ -239,10 +240,10 @@ export default function Landing() {
         <footer className="mt-20 pt-8 border-t border-neutral-200">
           <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
             <p className="text-sm text-neutral-500">
-              BrainTrust AI — Research Prototype for B.Tech CSE
+              BrainTrust AI — Personal Research Environment
             </p>
             <p className="text-sm text-neutral-400">
-              Not for clinical use
+              Built for understanding AI, not for diagnosis
             </p>
           </div>
         </footer>

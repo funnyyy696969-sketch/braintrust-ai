@@ -175,8 +175,8 @@ export default function Explainability() {
               </svg>
             </button>
             <div>
-              <h1 className="font-semibold text-[#12355B]">Explainability</h1>
-              <p className="text-xs text-neutral-500">Grad-CAM Heatmap Visualization</p>
+              <h1 className="font-semibold text-[#12355B]">Explain</h1>
+              <p className="text-xs text-neutral-500">See where the model is looking</p>
             </div>
           </div>
           <span className="px-2 py-1 text-xs bg-[#6C4AB6]/10 text-[#6C4AB6] rounded">
@@ -193,7 +193,7 @@ export default function Explainability() {
               <CardHeader className="pb-4">
                 <div className="flex items-center gap-2">
                   <Upload className="w-5 h-5 text-[#6C4AB6]" />
-                  <CardTitle className="text-lg">Upload MRI Image</CardTitle>
+                  <CardTitle className="text-lg">Upload Scan</CardTitle>
                 </div>
               </CardHeader>
               <CardContent>
@@ -202,7 +202,7 @@ export default function Explainability() {
                   onClick={() => document.getElementById("explainability-file")?.click()}
                 >
                   <Upload className="w-10 h-10 text-neutral-400 mx-auto mb-4" />
-                  <p className="text-neutral-600">Drag and drop or click to upload</p>
+                  <p className="text-neutral-600">Drop a scan here, or click to upload</p>
                   <input
                     id="explainability-file"
                     type="file"
@@ -259,13 +259,13 @@ export default function Explainability() {
             {/* Original MRI */}
             <Card className="border-neutral-200">
               <CardHeader className="pb-3">
-                <CardTitle className="text-base">Original MRI</CardTitle>
+                <CardTitle className="text-base">Your Scan</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="aspect-square bg-neutral-100 rounded-lg flex items-center justify-center overflow-hidden">
                   <img
                     src={state.originalImage}
-                    alt="Original MRI"
+                    alt="Your scan"
                     className="max-w-full max-h-full object-contain"
                   />
                 </div>
@@ -276,7 +276,7 @@ export default function Explainability() {
             <Card className="border-neutral-200">
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-base">Grad-CAM Heatmap</CardTitle>
+                  <CardTitle className="text-base">Heatmap</CardTitle>
                   <span className="px-2 py-0.5 text-xs bg-[#6C4AB6]/10 text-[#6C4AB6] rounded">
                     Attention Map
                   </span>
@@ -286,7 +286,7 @@ export default function Explainability() {
                 <div className="aspect-square bg-neutral-100 rounded-lg flex items-center justify-center overflow-hidden">
                   <img
                     src={state.heatmap!}
-                    alt="Grad-CAM Heatmap"
+                    alt="Model attention heatmap"
                     className="max-w-full max-h-full object-contain"
                   />
                 </div>
@@ -296,18 +296,13 @@ export default function Explainability() {
             {/* Saliency Mask */}
             <Card className="border-neutral-200">
               <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-base">Saliency Mask</CardTitle>
-                  <span className="px-2 py-0.5 text-xs bg-neutral-200 text-neutral-700 rounded">
-                    Binary Threshold
-                  </span>
-                </div>
+                <CardTitle className="text-base">Attention Region</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="aspect-square bg-neutral-100 rounded-lg flex items-center justify-center overflow-hidden">
                   <img
                     src={state.saliencyMask!}
-                    alt="Saliency Mask"
+                    alt="Attention region mask"
                     className="max-w-full max-h-full object-contain"
                   />
                 </div>
@@ -318,18 +313,16 @@ export default function Explainability() {
             {state.overlay && (
               <Card className="border-neutral-200">
                 <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-base">Overlay</CardTitle>
-                    <span className="px-2 py-0.5 text-xs bg-[#6C4AB6]/10 text-[#6C4AB6] rounded">
-                      Original + Heatmap
-                    </span>
-                  </div>
+                  <CardTitle className="text-base">Scan with Overlay</CardTitle>
+                  <span className="px-2 py-0.5 text-xs bg-[#6C4AB6]/10 text-[#6C4AB6] rounded">
+                    Original + Heatmap
+                  </span>
                 </CardHeader>
                 <CardContent>
                   <div className="aspect-square bg-neutral-100 rounded-lg flex items-center justify-center overflow-hidden">
                     <img
                       src={state.overlay}
-                      alt="Overlay"
+                      alt="Scan with heatmap overlay"
                       className="max-w-full max-h-full object-contain"
                     />
                   </div>
@@ -377,7 +370,7 @@ export default function Explainability() {
             <CardHeader className="pb-4">
               <div className="flex items-center gap-2">
                 <Info className="w-5 h-5 text-[#6C4AB6]" />
-                <CardTitle className="text-lg">What is Grad-CAM?</CardTitle>
+                <CardTitle className="text-lg">How This Works</CardTitle>
               </div>
             </CardHeader>
             <CardContent>
@@ -402,7 +395,7 @@ export default function Explainability() {
 
           <Card className="border-neutral-200">
             <CardHeader className="pb-4">
-              <CardTitle className="text-lg">Method Information</CardTitle>
+              <CardTitle className="text-lg">Method Details</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-2 text-sm">

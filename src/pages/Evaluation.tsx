@@ -62,8 +62,8 @@ export default function Evaluation() {
               </svg>
             </button>
             <div>
-              <h1 className="font-semibold text-[#12355B]">Evaluation</h1>
-              <p className="text-xs text-neutral-500">RMA, GAM Analysis & Statistical Evaluation</p>
+              <h1 className="font-semibold text-[#12355B]">Evaluate</h1>
+              <p className="text-xs text-neutral-500">Deepen your understanding of model behavior</p>
             </div>
           </div>
           <span className="px-2 py-1 text-xs bg-[#12355B]/10 text-[#12355B] rounded">

@@ -176,8 +176,8 @@ export default function MRIAnalysis() {
               </svg>
             </button>
             <div>
-              <h1 className="font-semibold text-[#12355B]">MRI Analysis</h1>
-              <p className="text-xs text-neutral-500">Upload and analyze brain MRI images</p>
+              <h1 className="font-semibold text-[#12355B]">Analyze MRI</h1>
+              <p className="text-xs text-neutral-500">Upload a scan for AI prediction</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -194,7 +194,7 @@ export default function MRIAnalysis() {
           <CardHeader className="pb-4">
             <div className="flex items-center gap-2">
               <Upload className="w-5 h-5 text-[#12355B]" />
-              <CardTitle className="text-lg">Upload MRI Image</CardTitle>
+              <CardTitle className="text-lg">Upload Scan</CardTitle>
             </div>
           </CardHeader>
           <CardContent>
@@ -206,15 +206,15 @@ export default function MRIAnalysis() {
                 onClick={() => document.getElementById("file-input")?.click()}
               >
                 <Upload className="w-10 h-10 text-neutral-400 mx-auto mb-4" />
-                <p className="text-neutral-600 mb-2">Drag and drop an MRI image here</p>
-                <p className="text-sm text-neutral-500 mb-4">or click to browse</p>
+                <p className="text-neutral-600 mb-2">Drop your scan here, or click to browse</p>
+                <p className="text-xs text-neutral-400 mt-1">PNG, JPG, or JPEG — up to 10MB</p>
                 <Button
                   variant="outline"
                   size="sm"
                   className="border-neutral-300"
                   onClick={() => document.getElementById("file-input")?.click()}
                 >
-                  Choose File
+                  Browse Files
                 </Button>
                 <input
                   id="file-input"
@@ -223,9 +223,7 @@ export default function MRIAnalysis() {
                   onChange={handleFileInput}
                   className="hidden"
                 />
-                <p className="text-xs text-neutral-400 mt-4">
-                  Supported: PNG, JPG, JPEG (max 10MB)
-                </p>
+                <p className="text-xs text-neutral-400 mt-4">PNG, JPG, or JPEG — up to 10MB</p>
               </div>
             ) : (
               <div className="flex gap-6">
@@ -337,20 +335,18 @@ export default function MRIAnalysis() {
                 {/* Prediction Info */}
                 <div>
                   <div className="p-4 bg-[#12355B]/5 rounded-lg border border-[#12355B]/20 mb-4">
-                    <p className="text-sm text-neutral-600 mb-1">Predicted Class</p>
+                    <p className="text-sm text-neutral-500 mb-1">Prediction</p>
                     <p className="text-2xl font-semibold text-[#12355B]">
                       {state.prediction.predictedClass}
                     </p>
                   </div>
                   <div className="p-4 bg-[#008C95]/5 rounded-lg border border-[#008C95]/20">
-                    <p className="text-sm text-neutral-600 mb-1">Confidence</p>
+                    <p className="text-sm text-neutral-500 mb-1">Model Confidence</p>
                     <p className="text-2xl font-semibold text-[#008C95]">
                       {(state.prediction.confidence * 100).toFixed(1)}%
                     </p>
                   </div>
-                </div>
-
-                {/* Probabilities */}
+                </div>                  {/* Probabilities */}
                 <div>
                   <p className="text-sm font-medium text-neutral-700 mb-3">Class Probabilities</p>
                   <div className="space-y-2">
@@ -372,13 +368,11 @@ export default function MRIAnalysis() {
                     ))}
                   </div>
                 </div>
-              </div>
-
-              {/* Preprocessing Info */}
+              </div>                  {/* Preprocessing Info */}
               <div className="mt-6 p-4 bg-neutral-50 rounded-lg border border-neutral-200">
                 <div className="flex items-center gap-2 mb-3">
                   <Info className="w-4 h-4 text-neutral-500" />
-                  <p className="text-sm font-medium text-neutral-700">Preprocessing Information</p>
+                  <p className="text-sm font-medium text-neutral-700">What We Did</p>
                 </div>
                 <div className="grid grid-cols-3 gap-4 text-sm">
                   <div>
@@ -400,13 +394,12 @@ export default function MRIAnalysis() {
         )}
 
         {/* Disclaimer */}
-        <div className="p-4 bg-neutral-50 rounded-lg border border-neutral-200">
-          <div className="flex items-start gap-3">
+        <div className="p-4 bg-neutral-50 rounded-lg border border-neutral-200">            <div className="flex items-start gap-3">
             <AlertCircle className="w-5 h-5 text-[#E58A2B] flex-shrink-0 mt-0.5" />
             <p className="text-sm text-neutral-600">
-              <span className="font-medium">Research Prototype: </span>
-              This is an experimental model prediction, not a clinical diagnosis.
-              Results should be interpreted by qualified medical professionals.
+              <span className="font-medium">For research only. </span>
+              This is an experimental prediction, not a diagnosis. If you are using this
+              for anything beyond personal understanding, involve a qualified professional.
             </p>
           </div>
         </div>

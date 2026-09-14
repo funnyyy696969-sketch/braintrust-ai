@@ -152,8 +152,8 @@ export default function OutputFragility() {
               </svg>
             </button>
             <div>
-              <h1 className="font-semibold text-[#12355B]">Output Fragility</h1>
-              <p className="text-xs text-neutral-500">OFI_res Analysis</p>
+              <h1 className="font-semibold text-[#12355B]">Fragility</h1>
+              <p className="text-xs text-neutral-500">How much does the prediction change?</p>
             </div>
           </div>
           <span className="px-2 py-1 text-xs bg-[#2E8B57]/10 text-[#2E8B57] rounded">
@@ -171,11 +171,11 @@ export default function OutputFragility() {
                 <Calculator className="w-8 h-8 text-[#2E8B57]" />
               </div>
               <h2 className="text-xl font-semibold text-[#12355B] mb-2">
-                Analyze Output Fragility
+                Measure Prediction Stability
               </h2>
               <p className="text-neutral-600 mb-6 max-w-md mx-auto">
-                Compare model predictions before and after perturbation to measure
-                output fragility using the OFI_res metric.
+                See how much the model's confidence changes when you perturb the scan.
+                A stable prediction is more trustworthy — a fragile one is not.
               </p>
               <Button
                 onClick={runAnalysis}
@@ -287,7 +287,7 @@ export default function OutputFragility() {
             {chartData.length > 0 && (
               <Card className="border-neutral-200">
                 <CardHeader className="pb-4">
-                  <CardTitle className="text-lg">Class Probability Comparison</CardTitle>
+                  <CardTitle className="text-lg">How the Probabilities Shifted</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="h-64">
@@ -329,7 +329,7 @@ export default function OutputFragility() {
                 <CardHeader className="pb-4">
                   <div className="flex items-center gap-2">
                     <Info className="w-5 h-5 text-[#2E8B57]" />
-                    <CardTitle className="text-lg">OFI_res Explanation</CardTitle>
+                    <CardTitle className="text-lg">What OFI_res Means</CardTitle>
                   </div>
                 </CardHeader>
                 <CardContent>
@@ -353,11 +353,11 @@ export default function OutputFragility() {
             <div className="p-4 bg-neutral-50 rounded-lg border border-neutral-200">
               <div className="flex items-start gap-3">
                 <AlertTriangle className="w-5 h-5 text-[#E58A2B] flex-shrink-0 mt-0.5" />
-                <p className="text-sm text-neutral-600">
-                  <span className="font-medium">Research Metric: </span>
-                  OFI_res is a research metric for evaluating model fragility. It is not
-                  a clinically validated diagnostic measure.
-                </p>
+              <p className="text-sm text-neutral-600">
+                <span className="font-medium">For research use. </span>
+                OFI_res helps you understand if the model is relying on robust features.
+                A high value means the prediction is fragile. A low value means it is stable.
+              </p>
               </div>
             </div>
           </div>

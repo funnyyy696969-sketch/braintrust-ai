@@ -118,10 +118,10 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
         <div className="w-full max-w-md">
           <div className="text-center mb-8">
             <h1 className="text-2xl font-semibold text-[#12355B]">
-              Welcome to BrainTrust AI
+              Welcome back
             </h1>
             <p className="text-neutral-600 mt-2">
-              Sign in to access the MRI analysis dashboard
+              Sign in to continue your analysis
             </p>
           </div>
 
@@ -264,11 +264,9 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                 </form>
               </>
             )}
-          </Card>
-
-          <p className="text-center text-xs text-neutral-400 mt-6">
-            Research prototype — not for clinical use
-          </p>
+          </Card>                    <p className="text-center text-xs text-neutral-400 mt-6">
+                      Built for research and evaluation
+                    </p>
         </div>
       </div>
     </div>
