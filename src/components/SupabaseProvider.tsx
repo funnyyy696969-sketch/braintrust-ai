@@ -1,9 +1,9 @@
-// Simple auth placeholder (no Supabase)
-import { createContext, useContext, ReactNode } from 'react';
-import type { User } from '@/lib/supabase-auth';
+// Supabase provider removed - using Convex auth instead
+// Use ConvexAuthProvider from @convex-dev/auth/react
+import React from "react";
 
 interface SupabaseAuthContextType {
-  user: User | null;
+  user: any | null;
   isLoading: boolean;
   signInWithEmail: (email: string, password: string) => Promise<{ success: boolean; error?: Error }>;
   signUpWithEmail: (email: string, password: string, name?: string) => Promise<{ success: boolean; error?: Error }>;
@@ -12,32 +12,23 @@ interface SupabaseAuthContextType {
   refetchUser: () => Promise<void>;
 }
 
-const SupabaseAuthContext = createContext<SupabaseAuthContextType | null>(null);
+// Stub context - not actually used
+const SupabaseAuthContext = React.createContext<SupabaseAuthContextType | null>(null);
 
-export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
-  return (
-    <SupabaseAuthContext.Provider
-      value={{
-        user: null,
-        isLoading: false,
-        signInWithEmail: async () => ({ success: false, error: new Error('Not configured') }),
-        signUpWithEmail: async () => ({ success: false, error: new Error('Not configured') }),
-        signInWithOtp: async () => ({ success: false, error: new Error('Not configured') }),
-        signOut: async () => ({ success: true }),
-        refetchUser: async () => {},
-      }}
-    >
-      {children}
-    </SupabaseAuthContext.Provider>
-  );
+export function SupabaseAuthProvider({ children }: { children: React.ReactNode }) {
+  return <>{children}</>;
 }
 
 export function useSupabaseAuth() {
-  const context = useContext(SupabaseAuthContext);
-  if (!context) {
-    throw new Error('useSupabaseAuth must be used within a SupabaseAuthProvider');
-  }
-  return context;
+  return {
+    user: null,
+    isLoading: false,
+    signInWithEmail: async () => ({ success: false, error: new Error('Not implemented') }),
+    signUpWithEmail: async () => ({ success: false, error: new Error('Not implemented') }),
+    signInWithOtp: async () => ({ success: false, error: new Error('Not implemented') }),
+    signOut: async () => ({ success: true }),
+    refetchUser: async () => {},
+  };
 }
 
 export const useAuth = useSupabaseAuth;

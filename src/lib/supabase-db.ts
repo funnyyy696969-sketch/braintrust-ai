@@ -1,5 +1,5 @@
-// Supabase not used in this version
-// Keeping this file for future integration if needed
+// Supabase database removed - using Convex instead
+// This file is kept empty to avoid import errors
 export interface AnalysisSession {
   id: string;
   user_id: string;

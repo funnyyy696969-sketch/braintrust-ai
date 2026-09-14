@@ -1,8 +1,7 @@
-// Supabase not used in this version
-// Keeping this file for future integration if needed
+// Supabase integration removed - using Convex auth instead
+// This file is kept empty to avoid import errors
 export const supabase = null;
 export const isSupabaseConfigured = () => false;
-interface SupabaseClient {}
-export function getSupabase(): SupabaseClient {
-  throw new Error('Supabase is not configured.');
+export function getSupabase() {
+  return null;
 }

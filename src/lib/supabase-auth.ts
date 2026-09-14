@@ -1,3 +1,5 @@
+// Supabase auth removed - using Convex auth instead
+// Use @/hooks/use-auth for authentication
 export interface User {
   id: string;
   email: string | null;
@@ -7,20 +9,19 @@ export interface User {
 }
 
 export async function getUser(): Promise<User | null> {
-  // No Supabase - return null (user management handled locally)
   return null;
 }
 
 export async function signInWithEmail(email: string, password: string) {
-  return { data: null, error: new Error('Supabase not configured') };
+  return { data: null, error: new Error('Not implemented') };
 }
 
 export async function signUpWithEmail(email: string, password: string, name?: string) {
-  return { data: null, error: new Error('Supabase not configured') };
+  return { data: null, error: new Error('Not implemented') };
 }
 
 export async function signInWithOtp(email: string) {
-  return { data: null, error: new Error('Supabase not configured') };
+  return { data: null, error: new Error('Not implemented') };
 }
 
 export async function signOut() {
@@ -31,5 +32,5 @@ export async function updateUserProfile(userId: string, updates: {
   name?: string;
   avatarUrl?: string;
 }) {
-  return { data: null, error: new Error('Supabase not configured') };
+  return { data: null, error: new Error('Not implemented') };
 }
