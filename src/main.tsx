@@ -8,10 +8,6 @@ import { BrowserRouter, Route, Routes, useLocation } from "react-router";
 import "./index.css";
 
 import { useAuth } from "@/hooks/use-auth";
-import { supabase } from "@/lib/supabase";
-import { isSupabaseConfigured } from "@/lib/supabase";
-import { SupabaseAuthProvider } from "@/components/SupabaseProvider";
-
 
 
 // Lazy load route components for better code splitting
@@ -133,6 +129,10 @@ function AuthWrapper({ children }: { children: React.ReactNode }) {
     );
   }
 
+  if (!isAuthenticated) {
+    return null;
+  }
+
   return (
     <>
       {children}
@@ -148,101 +148,99 @@ createRoot(document.getElementById("root")!).render(
       <ToolbarErrorBoundary>
         <VlyToolbar />
       </ToolbarErrorBoundary>
-      <SupabaseAuthProvider>
-        <BrowserRouter>
-          <RouteSyncer />
-          <Suspense fallback={<RouteLoading />}>
-            <Routes>
-              <Route path="/" element={<Landing />} />
-              <Route
-                path="/auth"
-                element={<AuthPage redirectAfterAuth="/dashboard" />}
-              />
-              <Route
-                path="/dashboard"
-                element={
-                  <SupabaseAuthProvider>
-                    <RequireAuth>
-                      <Dashboard />
-                    </RequireAuth>
-                  </SupabaseAuthProvider>
-                }
-              />
-              <Route
-                path="/mri-analysis"
-                element={
-                  <SupabaseAuthProvider>
-                    <RequireAuth>
-                      <MRIAnalysis />
-                    </RequireAuth>
-                  </SupabaseAuthProvider>
-                }
-              />
-              <Route
-                path="/explainability"
-                element={
-                  <SupabaseAuthProvider>
-                    <RequireAuth>
-                      <Explainability />
-                    </RequireAuth>
-                  </SupabaseAuthProvider>
-                }
-              />
-              <Route
-                path="/perturbation"
-                element={
-                  <SupabaseAuthProvider>
-                    <RequireAuth>
-                      <Perturbation />
-                    </RequireAuth>
-                  </SupabaseAuthProvider>
-                }
-              />
-              <Route
-                path="/output-fragility"
-                element={
-                  <SupabaseAuthProvider>
-                    <RequireAuth>
-                      <OutputFragility />
-                    </RequireAuth>
-                  </SupabaseAuthProvider>
-                }
-              />
-              <Route
-                path="/evaluation"
-                element={
-                  <SupabaseAuthProvider>
-                    <RequireAuth>
-                      <Evaluation />
-                    </RequireAuth>
-                  </SupabaseAuthProvider>
-                }
-              />
-              <Route
-                path="/documentation"
-                element={
-                  <SupabaseAuthProvider>
-                    <RequireAuth>
-                      <Documentation />
-                    </RequireAuth>
-                  </SupabaseAuthProvider>
-                }
-              />
-              <Route
-                path="/settings"
-                element={
-                  <SupabaseAuthProvider>
-                    <RequireAuth>
-                      <Settings />
-                    </RequireAuth>
-                  </SupabaseAuthProvider>
-                }
-              />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </Suspense>
-        </BrowserRouter>
-      </SupabaseAuthProvider>
+      <BrowserRouter>
+        <RouteSyncer />
+        <Suspense fallback={<RouteLoading />}>
+          <Routes>
+            <Route path="/" element={<Landing />} />
+            <Route
+              path="/auth"
+              element={<AuthPage redirectAfterAuth="/dashboard" />}
+            />
+            <Route
+              path="/dashboard"
+              element={
+                <AuthWrapper>
+                  <RequireAuth>
+                    <Dashboard />
+                  </RequireAuth>
+                </AuthWrapper>
+              }
+            />
+            <Route
+              path="/mri-analysis"
+              element={
+                <AuthWrapper>
+                  <RequireAuth>
+                    <MRIAnalysis />
+                  </RequireAuth>
+                </AuthWrapper>
+              }
+            />
+            <Route
+              path="/explainability"
+              element={
+                <AuthWrapper>
+                  <RequireAuth>
+                    <Explainability />
+                  </RequireAuth>
+                </AuthWrapper>
+              }
+            />
+            <Route
+              path="/perturbation"
+              element={
+                <AuthWrapper>
+                  <RequireAuth>
+                    <Perturbation />
+                  </RequireAuth>
+                </AuthWrapper>
+              }
+            />
+            <Route
+              path="/output-fragility"
+              element={
+                <AuthWrapper>
+                  <RequireAuth>
+                    <OutputFragility />
+                  </RequireAuth>
+                </AuthWrapper>
+              }
+            />
+            <Route
+              path="/evaluation"
+              element={
+                <AuthWrapper>
+                  <RequireAuth>
+                    <Evaluation />
+                  </RequireAuth>
+                </AuthWrapper>
+              }
+            />
+            <Route
+              path="/documentation"
+              element={
+                <AuthWrapper>
+                  <RequireAuth>
+                    <Documentation />
+                  </RequireAuth>
+                </AuthWrapper>
+              }
+            />
+            <Route
+              path="/settings"
+              element={
+                <AuthWrapper>
+                  <RequireAuth>
+                    <Settings />
+                  </RequireAuth>
+                </AuthWrapper>
+              }
+            />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </Suspense>
+      </BrowserRouter>
     </RootErrorBoundary>
   </StrictMode>,
 );
