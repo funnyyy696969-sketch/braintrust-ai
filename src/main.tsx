@@ -2,12 +2,14 @@ import '@vly-ai/integrations';
 import { Toaster } from "@/components/ui/sonner";
 import { RequireAuth } from "@/components/RequireAuth";
 import { VlyToolbar } from "../vly-toolbar-readonly.tsx";
-import { ConvexAuthProvider } from "@convex-dev/auth/react";
-import { ConvexReactClient } from "convex/react";
-import React, { StrictMode, useEffect, lazy, Suspense } from "react";
+import React, { StrictMode, useEffect, lazy, Suspense, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, Route, Routes, useLocation } from "react-router";
 import "./index.css";
+
+import { SupabaseAuthProvider, useSupabaseAuth } from "@/components/SupabaseProvider";
+import { supabase } from "@/lib/supabase";
+import { isSupabaseConfigured } from "@/lib/supabase";
 
 // Lazy load route components for better code splitting
 const Landing = lazy(() => import("./pages/Landing.tsx"));
@@ -85,11 +87,7 @@ class RootErrorBoundary extends React.Component<
     }
     return this.props.children;
   }
-}
-
-const convex = new ConvexReactClient(import.meta.env.VITE_CONVEX_URL as string);
-
-function RouteSyncer() {
+}function RouteSyncer() {
   const location = useLocation();
   useEffect(() => {
     window.parent.postMessage(
@@ -112,18 +110,46 @@ function RouteSyncer() {
   return null;
 }
 
+
+const SupabaseAuthWrapper = ({ children }: { children: React.ReactNode }) => {
+  const { user, isLoading } = useSupabaseAuth();
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    if (!isLoading) {
+      setReady(true);
+    }
+  }, [isLoading]);
+
+  if (!ready) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white">
+        <div className="text-neutral-500">Loading...</div>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      {children}
+      {user && <Toaster />}
+    </>
+  );
+};
+
+
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <RootErrorBoundary>
       <ToolbarErrorBoundary>
         <VlyToolbar />
       </ToolbarErrorBoundary>
-      <ConvexAuthProvider client={convex}>
+      <SupabaseAuthProvider>
         <BrowserRouter>
           <RouteSyncer />
           <Suspense fallback={<RouteLoading />}>
             <Routes>
-              <Route path="/" element={<Landing />} />
+              <Route path="/" element={isSupabaseConfigured() ? <Landing /> : <div className="min-h-screen flex items-center justify-center bg-white"><div className="text-neutral-500">Supabase not configured</div></div>} />
               <Route
                 path="/auth"
                 element={<AuthPage redirectAfterAuth="/dashboard" />}
@@ -131,73 +157,88 @@ createRoot(document.getElementById("root")!).render(
               <Route
                 path="/dashboard"
                 element={
-                  <RequireAuth>
-                    <Dashboard />
-                  </RequireAuth>
+                  <SupabaseAuthWrapper>
+                    <RequireAuth>
+                      <Dashboard />
+                    </RequireAuth>
+                  </SupabaseAuthWrapper>
                 }
               />
               <Route
                 path="/mri-analysis"
                 element={
-                  <RequireAuth>
-                    <MRIAnalysis />
-                  </RequireAuth>
+                  <SupabaseAuthWrapper>
+                    <RequireAuth>
+                      <MRIAnalysis />
+                    </RequireAuth>
+                  </SupabaseAuthWrapper>
                 }
               />
               <Route
                 path="/explainability"
                 element={
-                  <RequireAuth>
-                    <Explainability />
-                  </RequireAuth>
+                  <SupabaseAuthWrapper>
+                    <RequireAuth>
+                      <Explainability />
+                    </RequireAuth>
+                  </SupabaseAuthWrapper>
                 }
               />
               <Route
                 path="/perturbation"
                 element={
-                  <RequireAuth>
-                    <Perturbation />
-                  </RequireAuth>
+                  <SupabaseAuthWrapper>
+                    <RequireAuth>
+                      <Perturbation />
+                    </RequireAuth>
+                  </SupabaseAuthWrapper>
                 }
               />
               <Route
                 path="/output-fragility"
                 element={
-                  <RequireAuth>
-                    <OutputFragility />
-                  </RequireAuth>
+                  <SupabaseAuthWrapper>
+                    <RequireAuth>
+                      <OutputFragility />
+                    </RequireAuth>
+                  </SupabaseAuthWrapper>
                 }
               />
               <Route
                 path="/evaluation"
                 element={
-                  <RequireAuth>
-                    <Evaluation />
-                  </RequireAuth>
+                  <SupabaseAuthWrapper>
+                    <RequireAuth>
+                      <Evaluation />
+                    </RequireAuth>
+                  </SupabaseAuthWrapper>
                 }
               />
               <Route
                 path="/documentation"
                 element={
-                  <RequireAuth>
-                    <Documentation />
-                  </RequireAuth>
+                  <SupabaseAuthWrapper>
+                    <RequireAuth>
+                      <Documentation />
+                    </RequireAuth>
+                  </SupabaseAuthWrapper>
                 }
               />
               <Route
                 path="/settings"
                 element={
-                  <RequireAuth>
-                    <Settings />
-                  </RequireAuth>
+                  <SupabaseAuthWrapper>
+                    <RequireAuth>
+                      <Settings />
+                    </RequireAuth>
+                  </SupabaseAuthWrapper>
                 }
               />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </Suspense>
         </BrowserRouter>
-        <Toaster />
-      </ConvexAuthProvider>
+      </SupabaseAuthProvider>
     </RootErrorBoundary>
   </StrictMode>,
 );

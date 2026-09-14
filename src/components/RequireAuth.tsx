@@ -1,10 +1,10 @@
-import { useAuth } from "@/hooks/use-auth";
+import { useSupabaseAuth } from "@/components/SupabaseProvider";
 import { Loader2 } from "lucide-react";
 import type { ReactNode } from "react";
 import { Navigate, useLocation } from "react-router";
 
 export function RequireAuth({ children }: { children: ReactNode }) {
-  const { isLoading, isAuthenticated } = useAuth();
+  const { user, isLoading } = useSupabaseAuth();
   const location = useLocation();
 
   if (isLoading) {
@@ -15,7 +15,7 @@ export function RequireAuth({ children }: { children: ReactNode }) {
     );
   }
 
-  if (!isAuthenticated) {
+  if (!user) {
     const returnTo = `${location.pathname}${location.search}`;
     return (
       <Navigate

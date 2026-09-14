@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useAuth } from "@/hooks/use-auth";
 import { useNavigate } from "react-router";
+import { useEffect, useState } from "react";
 import {
   Brain,
   Scan,
@@ -11,8 +11,11 @@ import {
   LayoutDashboard,
   FileText,
   Settings,
-  Plus,
+  User,
+  LogOut,
 } from "lucide-react";
+import { supabase } from "@/lib/supabase";
+import { getUser } from "@/lib/supabase-auth";
 
 interface NavCardProps {
   icon: React.ReactNode;
@@ -48,12 +51,38 @@ function NavCard({ icon, title, description, color, href }: NavCardProps) {
   );
 }
 
+interface User {
+  id: string;
+  email: string | null;
+  name: string | null;
+  avatarUrl: string | null;
+  createdAt: string;
+}
+
 export default function Dashboard() {
-  const { user, signOut } = useAuth();
+  const [user, setUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
 
+  useEffect(() => {
+    const fetchUser = async () => {
+      const userData = await getUser();
+      setUser(userData);
+      setIsLoading(false);
+    };
+    fetchUser();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async () => {
+      const userData = await getUser();
+      setUser(userData);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
   const handleSignOut = async () => {
-    await signOut();
+    await supabase.auth.signOut();
+    setUser(null);
     navigate("/");
   };
 
@@ -117,10 +146,29 @@ export default function Dashboard() {
             </div>
           </div>
           <div className="flex items-center gap-4">
-            {user?.name && (
-              <span className="text-sm text-neutral-600">
-                {user.name}
-              </span>
+            {user && (
+              <div className="flex items-center gap-3">
+                {user.avatarUrl ? (
+                  <img
+                    src={user.avatarUrl}
+                    alt="Profile"
+                    className="w-8 h-8 rounded-full"
+                  />
+                ) : user.name ? (
+                  <div className="w-8 h-8 rounded-full bg-[#12355B]/10 flex items-center justify-center">
+                    <span className="text-sm font-medium text-[#12355B]">
+                      {user.name.charAt(0).toUpperCase()}
+                    </span>
+                  </div>
+                ) : (
+                  <div className="w-8 h-8 rounded-full bg-neutral-200 flex items-center justify-center">
+                    <User className="w-4 h-4 text-neutral-500" />
+                  </div>
+                )}
+                <span className="text-sm text-neutral-700">
+                  {user.name || user.email?.split("@")[0] || "User"}
+                </span>
+              </div>
             )}
             <Button
               variant="ghost"
@@ -128,6 +176,7 @@ export default function Dashboard() {
               onClick={handleSignOut}
               className="text-neutral-600"
             >
+              <LogOut className="w-4 h-4 mr-1" />
               Sign Out
             </Button>
           </div>
