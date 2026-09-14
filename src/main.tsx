@@ -21,6 +21,12 @@ const Evaluation = lazy(() => import("./pages/Evaluation.tsx"));
 const Documentation = lazy(() => import("./pages/Documentation.tsx"));
 const Settings = lazy(() => import("./pages/Settings.tsx"));
 const NotFound = lazy(() => import("./pages/NotFound.tsx"));
+// Multi-image pipeline routes
+const UploadInspection = lazy(() => import("./pages/UploadInspection.tsx"));
+const ExtractionReview = lazy(() => import("./pages/ExtractionReview.tsx"));
+const MultiImageAnalysis = lazy(() => import("./pages/MultiImageAnalysis.tsx"));
+const ImageDetailRoute = lazy(() => import("./pages/ImageDetail.tsx").then((m) => ({ default: m.ImageDetailRoute })));
+const OfiDashboard = lazy(() => import("./pages/OfiDashboard.tsx"));
 
 // Simple loading fallback for route transitions
 function RouteLoading() {
@@ -133,6 +139,11 @@ createRoot(document.getElementById("root")!).render(
                 element={<AuthPage redirectAfterAuth="/dashboard" />}
               />
               <Route path="/dashboard" element={protectedRoute(<Dashboard />)} />
+              <Route path="/upload" element={protectedRoute(<UploadInspection />)} />
+              <Route path="/extraction-review/:scanId" element={protectedRoute(<ExtractionReview />)} />
+              <Route path="/analysis/:scanId" element={protectedRoute(<MultiImageAnalysis />)} />
+              <Route path="/image/:scanId/:imageId" element={protectedRoute(<ImageDetailRoute />)} />
+              <Route path="/ofi/:scanId" element={protectedRoute(<OfiDashboard />)} />
               <Route path="/mri-analysis" element={protectedRoute(<MRIAnalysis />)} />
               <Route path="/explainability" element={protectedRoute(<Explainability />)} />
               <Route path="/perturbation" element={protectedRoute(<Perturbation />)} />

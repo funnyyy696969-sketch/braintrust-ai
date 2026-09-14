@@ -60,10 +60,10 @@ export default function Dashboard() {
   const navCards = [
     {
       icon: <Scan className="w-5 h-5" />,
-      title: "Analyze MRI",
-      description: "Upload a scan and get an AI prediction",
+      title: "Upload & Inspect",
+      description: "One file in — PNG, JPG, TIFF, DICOM, or NIfTI — with full structure detection first",
       color: "#12355B",
-      href: "/mri-analysis",
+      href: "/upload",
     },
     {
       icon: <Eye className="w-5 h-5" />,

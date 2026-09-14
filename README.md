@@ -1,189 +1,140 @@
 # BrainTrust AI
 
-**A Personal Environment for Understanding How AI Models Interpret Brain MRI Scans**
+**Inference-Time Manifold-Preserving Perturbation: an OOD-Resistant Output Fragility Framework** — a research prototype for evaluating how much a brain-MRI classifier's output changes when the region it *says* it is looking at is realistically perturbed.
 
-BrainTrust AI is a research space where you can upload brain MRI images, see how AI models
-interpret them, and test whether those predictions hold up when the images are perturbed.
-It is built for understanding, not for diagnosis.
-
-## What You Can Do
-
-- **Analyze MRI Scans**: Upload images and receive AI predictions with confidence scores
-- **Visualize Model Attention**: See exactly where the model is focusing using Grad-CAM heatmaps
-- **Perturb and Test**: Apply realistic changes to tumor regions and measure how predictions change
-- **Measure Fragility**: Quantify prediction stability with OFI_res and statistical analysis
-- **Deep Evaluation**: Run RMA, GAM analysis, and sanity checks to understand model behavior
-- **Learn as You Go**: Built-in documentation explains what everything means and why it matters
-
-## Technology Stack
-
-### Frontend
-- React 19
-- TypeScript
-- Vite
-- Tailwind CSS (Minimalism theme)
-- Recharts for visualization
-- Lucide React icons
-- Convex Auth for authentication
-
-### Backend
-- FastAPI
-- Uvicorn
-- Pydantic
-- Python-Multipart
-
-### AI/ML (Planned)
-- PyTorch
-- Torchvision
-- ResNet50 / EfficientNet
-- Captum for Grad-CAM
-- NumPy, OpenCV, Pillow
-
-## Getting Started
-
-This is a personal project. You are the primary user. Everything is set up so you can
-log in, upload your own scans, and explore what the models do with them.
-
-### Running It
-
-```bash
-# Install dependencies
-bun install
-
-# Start the frontend
-bun run dev
-```
-
-### Backend Setup
-
-```bash
-cd backend
-
-# Create virtual environment
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Run server
-python -m app.main
-```
-
-The backend runs on `http://localhost:8000` if you want to use it.
-
-### Project Layout
-
-```
-braintrust-ai/
-├── frontend/                 # Everything you see in the browser
-│   └── src/
-│       ├── pages/           # The screens you interact with
-│       └── ...
-├── backend/                 # API that powers the analysis
-│   └── app/
-│       ├── api/            # Endpoints
-│       └── ...
-└── ...
-```
-
-## Pages
-
-### Landing Page (`/`)
-- Introduction to what BrainTrust AI is for
-- Getting started call-to-action
-
-### Sign In (`/auth`)
-- Log in to access your workspace
-- Guest access also available
-
-### Dashboard (`/dashboard`)
-- Your personal workspace
-- Quick access to every part of the app
-
-### Analyze MRI (`/mri-analysis`)
-- Upload a scan
-- Select a model
-- See the prediction and confidence
-
-### Explain (`/explainability`)
-- View the scan
-- Generate a Grad-CAM heatmap
-- Adjust overlay to see where the model is looking
-
-### Perturb (`/perturbation`)
-- See the original scan
-- Apply a perturbation
-- Compare before and after
-
-### Fragility (`/output-fragility`)
-- See the original prediction
-- See the perturbed prediction
-- Understand how much the model changed its mind
-
-### Evaluate (`/evaluation`)
-- Run deeper checks on model behavior
-- RMA, GAM analysis, and sanity checks
-
-### Documentation (`/documentation`)
-- Read about how things work
-- Understand the methods and what to watch out for
-
-### Settings (`/settings`)
-- Configure your workspace
-- Adjust settings to your preferences
-
-## API Endpoints
-
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/health` | GET | Health check and model status |
-| `/api/predict` | POST | Predict from MRI image |
-| `/api/gradcam` | POST | Generate Grad-CAM explanation |
-| `/api/perturb` | POST | Apply perturbation |
-| `/api/reinfer` | POST | Re-run inference on perturbed image |
-| `/api/ofi` | POST | Calculate OFI_res |
-| `/api/rma` | POST | Calculate Relevance Mass Accuracy |
-| `/api/gam-analysis` | POST | Perform GAM analysis |
-
-## Demo Mode
-
-Right now the app runs in demo mode. That means:
-- Predictions are simulated so you can see how the interface works
-- Visualizations are generated on the fly for demonstration
-- Real model inference requires integrating trained PyTorch models
-
-To switch to real inference, you would integrate trained models and adjust the
-backend configuration.
-
-## Design
-
-The look is clean and restrained. Nothing flashy. Everything is aligned carefully,
-with room to breathe and just enough color to guide your eye.
-
-### Colors
-- White background
-- Deep navy for headings and navigation (`#12355B`)
-- Teal for the AI workflow (`#008C95`)
-- Violet for Grad-CAM and explainability (`#6C4AB6`)
-- Orange for perturbation and warnings (`#E58A2B`)
-- Green for completed checks (`#2E8B57`)
-- Soft gray cards (`#F3F6F9`)
-- Dark charcoal text (`#263238`)
-
-## A Note on What This Is
-
-BrainTrust AI is a personal research environment. It is built for understanding how
-AI models behave when they analyze brain MRI scans, not for clinical diagnosis.
-
-The predictions, visualizations, and metrics you see are experimental. They are useful
-for thinking critically about model reliability, but they are not validated clinical
-tools and should not be used to make decisions about patients.
-
-If you plan to use these ideas beyond personal exploration, bring in qualified
-professionals and validate everything properly.
+Not a clinical tool. No diagnosis, no staging, no clinical claims.
 
 ---
 
-Built with React, FastAPI, Tailwind CSS, and Convex.
-MIT License.
+## What it does
+
+1. **Inspect** — one uploaded file (PNG, JPG, multi-page TIFF, DICOM single- or multi-frame, NIfTI `.nii`/`.nii.gz`, ZIP) is identified by **magic bytes**, never by extension. The report shows file type, structure (single / composite / slice-stack / volume / archive), image/slice/frame count, dimensions, channels, bit depth, series info, and voxel spacing when available.
+2. **Extract** — composites are split into panels via gutter detection (content-agnostic, works on white or black backgrounds); volumes are sliced along a chosen axis; multi-frame files become frames. Crops are always taken from the original full-resolution image — nothing is stretched, rotated, or shrunk before cropping. A manual grid override is available when detection is unsure.
+3. **Analyze per image** — every extracted image gets its **own** pipeline run: preprocess → classify → Grad-CAM → salient-region perturbation → re-classify → OFI<sub>res</sub>. Results are never shared between images.
+4. **Review** — per-image dashboard with original/Grad-CAM/saliency/perturbed views, side-by-side predictions, per-image OFI<sub>res</sub>, group-level summary (clearly labelled as an aggregation), and charts.
+
+### OFI<sub>res</sub>
+
+```
+OFI_res = ( p_orig(target) − p_perturbed(target) ) / ( p_orig(target) + ε )
+```
+
+`target` = the class predicted on the clean image. ≈ 0 → robust; ≈ 1 → confidence collapsed; > 1 → flipped. Version: `OFI_res-v1.0` — **a project-defined metric, not a clinically validated standard.** Values below the 35 % baseline-confidence floor are flagged unreliable rather than silently reported.
+
+### Honest limits
+
+- The browser build runs a **deterministic pixel-statistics surrogate** ("Demo Mode"), not a trained network — predictions and Grad-CAM are consistent with each other but are **not** medical output. No RNG anywhere: identical input always yields identical output.
+- The desktop backend **refuses to analyze without a trained checkpoint** instead of simulating one.
+- Tumor stage/grade is **not** predicted anywhere. Grad-CAM is an attention explanation, not segmentation.
+
+---
+
+## Architecture
+
+```
+src/
+  lib/imaging/           browser analysis core (TypeScript)
+    fileInspection.ts      magic-byte detection, structure report
+    compositeDetection.ts  gutter grid detection + full-res panel extraction
+    sliceExtraction.ts     TIFF pages, DICOM frames, NIfTI slices, ZIP entries
+    extraction.ts          router → correct extractor
+    preprocessing.ts       luma → 224² → normalise
+    prediction.ts          deterministic demo classifier
+    gradcam.ts             Grad-CAM surrogate, jet heatmap, saliency mask
+    perturbation.ts        salient-region-only blur/pixelate/brightness/noise
+    fragility.ts           OFI_res v1.0
+    analysisPipeline.ts    per-image orchestration + group summary
+    sessionStore.ts        in-memory image session (pixels never uploaded)
+  pages/
+    UploadInspection.tsx     Upload & File Inspection
+    ExtractionReview.tsx     Image Extraction Review (accept/reject + manual grid)
+    MultiImageAnalysis.tsx   Multi-Image Analysis dashboard
+    ImageDetail.tsx          Individual Image Detail (Grad-CAM/overlay/OFI card)
+    OfiDashboard.tsx         OFI_res Dashboard (charts, aggregation, caveats)
+  convex/
+    schema.ts                scans / images / auditLog tables
+    scans.ts                 persistence + audit API
+
+backend/                 desktop backend (Python 3.10+)
+  services/
+    file_inspection_service.py
+    composite_detection_service.py
+    image_extraction_service.py
+    dicom_service.py          (PII-safe)
+    nifti_service.py
+    preprocessing_service.py  (inside prediction_service.preprocess)
+    prediction_service.py     checkpoint-gated
+    gradcam_service.py        Captum LayerGradCam
+    perturbation_service.py
+    fragility_service.py
+    multi_image_analysis_service.py
+    evaluation_service.py
+  tests/
+    test_extraction.py        1/4/9-panel, multi-frame, 3D volume cases
+    test_fragility.py         OFI_res maths + guard
+  app/main.py               FastAPI routes: /api/inspect /api/extract /api/analyze
+```
+
+---
+
+## Running
+
+### Web app (this environment — no setup needed)
+
+```bash
+bun install
+bun convex dev --once   # deploy Convex functions
+bun tsc -b --noEmit     # typecheck
+bun run dev             # or just open the preview
+```
+
+### Desktop backend (Windows / VS Code)
+
+```powershell
+cd backend
+python -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements.txt
+uvicorn app.main:app --reload --port 8000
+```
+
+### Model checkpoint setup
+
+The backend looks for:
+
+```
+backend/checkpoints/brain_mri_resnet50.pt
+```
+
+Expected: a `torch.nn.Module` taking `1×1×224×224` normalised input (luma, mean 0.449, std 0.226) with a 4-logit head ordered `[Glioma, Meningioma, "No Tumor", Pituitary]`. Export with:
+
+```python
+torch.save(model, "backend/checkpoints/brain_mri_resnet50.pt")
+```
+
+Until that file exists, `POST /api/analyze` returns **503** by design. The web app keeps running in clearly-labelled Demo Mode.
+
+### Tests
+
+```bash
+cd backend
+pytest tests -q          # Python: extraction + OFI_res
+bunx vitest run          # browser: prediction determinism + OFI maths
+```
+
+---
+
+## Sample demo images
+
+Create quick composites locally for testing (no patient data needed):
+
+```python
+from tests.test_extraction import _composite
+_composite(2, 2).save("demo-2x2.png")   # 4-panel composite
+_composite(3, 3).save("demo-3x3.png")   # 9-panel composite
+_composite(1, 1).save("demo-single.png")
+```
+
+## Audit log
+
+Every inspect / extract / manual-correction / per-image analysis event is recorded in the `auditLog` Convex table with timestamps — extraction and analysis operations are traceable per scan.
