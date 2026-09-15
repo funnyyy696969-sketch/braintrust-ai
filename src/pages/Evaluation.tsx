@@ -27,24 +27,25 @@ export default function Evaluation() {
     gcvScore: number;
   } | null>(null);
 
+  const [gamMissingData, setGamMissingData] = useState(false);
+  const [missingDataWarning, setMissingDataWarning] = useState(false);
+
+  const [needsGroundTruthWarning, setNeedsGroundTruthWarning] = useState(false);
+
   const runRMAEvaluation = async () => {
-    // Demo RMA calculation
+    setMissingDataWarning(true);
     setRmaResult({
-      rmaScore: 0.78,
+      rmaScore: null,
       hasGroundTruth: false,
-      precision: 0.72,
-      recall: 0.68,
-      f1Score: 0.70,
+      precision: null,
+      recall: null,
+      f1Score: null,
     });
   };
 
   const runGAMAnalysis = async () => {
-    // Demo GAM analysis
-    setGamResult({
-      summary: "GAM analysis shows a moderate positive relationship between tumor volume and output fragility. The model explains approximately 52% of deviance.",
-      devianceExplained: 0.52,
-      gcvScore: 0.234,
-    });
+    setGamResult(null);
+    setGamMissingData(true);
   };
 
   return (
@@ -128,47 +129,38 @@ export default function Evaluation() {
                 />
               </div>
               <div>
-                {rmaResult ? (
+                {missingDataWarning && !rmaResult?.hasGroundTruth ? (
+                  <div className="p-4 bg-[#E58A2B]/5 border border-[#E58A2B]/25 rounded-lg">
+                    <div className="flex items-start gap-3">
+                      <AlertTriangle className="w-5 h-5 text-[#E58A2B] flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-sm font-medium text-[#E58A2B]">Missing Ground-Truth Data</p>
+                        <p className="text-sm text-neutral-600 mt-1">
+                          Fragility vs. Tumor analysis requires valid tumor measurements and
+                          completed OFI_res results. RMA evaluation requires ground-truth
+                          segmentation masks (e.g., BraTS format) to compare against the
+                          saliency maps.
+                        </p>
+                        <p className="text-sm text-neutral-600 mt-1">
+                          Without ground-truth masks, RMA cannot be meaningfully computed.
+                          Upload a ground-truth mask or run the full pipeline first.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ) : rmaResult && rmaResult.hasGroundTruth ? (
                   <div className="space-y-4">
                     <div className="p-4 bg-[#12355B]/5 rounded-lg border border-[#12355B]/20">
                       <p className="text-sm text-neutral-600 mb-1">RMA Score</p>
-                      <p
-                        className={`text-3xl font-bold ${
-                          rmaResult.rmaScore && rmaResult.rmaScore > 0.7
-                            ? "text-[#2E8B57]"
-                            : rmaResult.rmaScore && rmaResult.rmaScore > 0.5
-                            ? "text-[#E58A2B]"
-                            : "text-red-600"
-                        }`}
-                      >
+                      <p className={`text-3xl font-bold ${rmaResult.rmaScore && rmaResult.rmaScore > 0.7 ? "text-[#2E8B57]" : rmaResult.rmaScore && rmaResult.rmaScore > 0.5 ? "text-[#E58A2B]" : "text-red-600"}`}>
                         {rmaResult.rmaScore?.toFixed(4) || "N/A"}
                       </p>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
-                      <div className="p-3 bg-neutral-50 rounded-lg">
-                        <p className="text-xs text-neutral-500">Precision</p>
-                        <p className="text-lg font-semibold text-neutral-900">
-                          {rmaResult.precision?.toFixed(3) || "—"}
-                        </p>
-                      </div>
-                      <div className="p-3 bg-neutral-50 rounded-lg">
-                        <p className="text-xs text-neutral-500">Recall</p>
-                        <p className="text-lg font-semibold text-neutral-900">
-                          {rmaResult.recall?.toFixed(3) || "—"}
-                        </p>
-                      </div>
-                      <div className="p-3 bg-neutral-50 rounded-lg">
-                        <p className="text-xs text-neutral-500">F1 Score</p>
-                        <p className="text-lg font-semibold text-neutral-900">
-                          {rmaResult.f1Score?.toFixed(3) || "—"}
-                        </p>
-                      </div>
-                      <div className="p-3 bg-neutral-50 rounded-lg">
-                        <p className="text-xs text-neutral-500">Ground Truth</p>
-                        <p className={`text-lg font-semibold ${rmaResult.hasGroundTruth ? "text-[#2E8B57]" : "text-neutral-400"}`}>
-                          {rmaResult.hasGroundTruth ? "Available" : "Not provided"}
-                        </p>
-                      </div>
+                      <div className="p-3 bg-neutral-50 rounded-lg"><p className="text-xs text-neutral-500">Precision</p><p className="text-lg font-semibold">{rmaResult.precision?.toFixed(3) || "—"}</p></div>
+                      <div className="p-3 bg-neutral-50 rounded-lg"><p className="text-xs text-neutral-500">Recall</p><p className="text-lg font-semibold">{rmaResult.recall?.toFixed(3) || "—"}</p></div>
+                      <div className="p-3 bg-neutral-50 rounded-lg"><p className="text-xs text-neutral-500">F1 Score</p><p className="text-lg font-semibold">{rmaResult.f1Score?.toFixed(3) || "—"}</p></div>
+                      <div className="p-3 bg-neutral-50 rounded-lg"><p className="text-xs text-neutral-500">Ground Truth</p><p className={`text-lg font-semibold ${rmaResult.hasGroundTruth ? "text-[#2E8B57]" : "text-neutral-400"}`}>{rmaResult.hasGroundTruth ? "Available" : "Not provided"}</p></div>
                     </div>
                   </div>
                 ) : (
@@ -205,7 +197,28 @@ export default function Evaluation() {
                 </Button>
               </div>
               <div>
-                {gamResult ? (
+                {gamMissingData ? (
+                  <div className="p-4 bg-[#E58A2B]/5 border border-[#E58A2B]/25 rounded-lg">
+                    <div className="flex items-start gap-3">
+                      <AlertTriangle className="w-5 h-5 text-[#E58A2B] flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-sm font-medium text-[#E58A2B]">Insufficient Data for GAM Analysis</p>
+                        <p className="text-sm text-neutral-600 mt-1">
+                          GAM analysis requires:
+                        </p>
+                        <ul className="text-sm text-neutral-600 mt-1 list-disc pl-5">
+                          <li>Valid OFI_res results from completed image analyses</li>
+                          <li>Tumor measurements (volume, area, or other quantitative data)</li>
+                          <li>Sufficient data points for reliable smooth function fitting</li>
+                        </ul>
+                        <p className="text-sm text-neutral-600 mt-1">
+                          Without these, GAM cannot be fitted. Run the multi-image analysis
+                          pipeline first, then provide tumor measurements if available.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ) : gamResult ? (
                   <div className="space-y-4">
                     <div className="p-4 bg-[#008C95]/5 rounded-lg border border-[#008C95]/20">
                       <p className="text-sm text-neutral-600 mb-2">Model Summary</p>
@@ -216,22 +229,16 @@ export default function Evaluation() {
                     <div className="grid grid-cols-2 gap-4">
                       <div className="p-3 bg-neutral-50 rounded-lg">
                         <p className="text-xs text-neutral-500">Deviance Explained</p>
-                        <p className="text-lg font-semibold text-[#008C95]">
-                          {(gamResult.devianceExplained * 100).toFixed(1)}%
-                        </p>
+                        <p className="text-lg font-semibold text-[#008C95]">{(gamResult.devianceExplained * 100).toFixed(1)}%</p>
                       </div>
                       <div className="p-3 bg-neutral-50 rounded-lg">
                         <p className="text-xs text-neutral-500">GCV Score</p>
-                        <p className="text-lg font-semibold text-neutral-900">
-                          {gamResult.gcvScore.toFixed(3)}
-                        </p>
+                        <p className="text-lg font-semibold">{gamResult.gcvScore.toFixed(3)}</p>
                       </div>
                     </div>
                     <div className="p-3 bg-neutral-100 rounded-lg">
                       <p className="text-xs text-neutral-500 mb-1">Formula</p>
-                      <p className="text-sm font-mono text-neutral-900">
-                        g(E[OFI_res]) = β₀ + f₁(volume) + ε
-                      </p>
+                      <p className="text-sm font-mono">g(E[OFI_res]) = β₀ + f₁(volume) + ε</p>
                     </div>
                   </div>
                 ) : (
