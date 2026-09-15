@@ -1,5 +1,3 @@
-import { useRef } from "react";
-
 import { useState, useCallback, useRef } from "react";
 import { useNavigate } from "react-router";
 import { Button } from "@/components/ui/button";
@@ -220,7 +218,7 @@ export default function Perturbation() {
                 </CardHeader>
                 <CardContent>
                   <div className="flex flex-col md:flex-row gap-6">
-                    <img src={previewUrl} alt="preview" className="w-full md:w-56 h-48 object-contain bg-neutral-50 border border-neutral-200 rounded-lg" />
+                    <img src={previewUrl ?? undefined} alt="preview" className="w-full md:w-56 h-48 object-contain bg-neutral-50 border border-neutral-200 rounded-lg" />
                     <div className="flex-1 grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
                       <Row label="File name" value={report.fileName} />
                       <Row label="Structure" value={report.structure} />
@@ -401,7 +399,7 @@ export default function Perturbation() {
               </Card>
             )}
 
-            {analysis.error && (
+            {analysis?.error && (
               <div className="p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
                 <AlertTriangle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
                 <p className="text-sm text-red-700">{analysis.error}</p>

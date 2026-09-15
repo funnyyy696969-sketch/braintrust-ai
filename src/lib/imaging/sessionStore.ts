@@ -13,12 +13,41 @@ interface SessionData {
   analyses: Map<string, ImageAnalysis>;
   modelName: string;
   formulaVersion: string;
+  /**
+   * True once the user confirmed the grid layout (or the file is a single
+   * image / medical volume that needs no grid confirmation). Analysis pages
+   * must refuse to run while this is false for composite uploads.
+   */
+  gridConfirmed: boolean;
+  /** One-line description of the layout that produced `images`. */
+  gridInfo: string | null;
 }
 
 let session: SessionData | null = null;
 
-export function setSession(data: Omit<SessionData, "analyses"> & { analyses?: Map<string, ImageAnalysis> }) {
-  session = { analyses: new Map(), ...data };
+export function setSession(
+  data: Omit<SessionData, "analyses" | "gridConfirmed" | "gridInfo"> & {
+    analyses?: Map<string, ImageAnalysis>;
+    gridConfirmed?: boolean;
+    gridInfo?: string | null;
+  },
+) {
+  session = {
+    analyses: new Map(),
+    gridConfirmed: false,
+    gridInfo: null,
+    ...data,
+  };
+}
+
+export function confirmGrid(confirmed = true) {
+  if (session) {
+    session.gridConfirmed = confirmed;
+  }
+}
+
+export function isGridConfirmed(): boolean {
+  return session?.gridConfirmed ?? false;
 }
 
 export function getSession(): SessionData | null {

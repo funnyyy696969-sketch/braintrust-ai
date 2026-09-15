@@ -16,7 +16,7 @@ import type {
   PerturbationResult,
 } from "../imaging/types";
 import { CLASS_LABELS } from "../imaging/types";
-import { preprocessImage } from "./preprocessing";
+import { preprocessImage, MODEL_INPUT_SIZE } from "./preprocessing";
 import { predict, MODEL_NAME } from "./prediction";
 import { generateGradCam } from "./gradcam";
 import { perturbImage, type PerturbationMethod } from "./perturbation";
@@ -25,6 +25,62 @@ import { computeOfi, OFI_FORMULA_VERSION } from "./fragility";
 export type StageListener = (imageId: string, stage: string) => void;
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * Integrity guard — verifies that an analysis result belongs to the image it
+ * is being displayed with. Throws a clear error (instead of rendering wrong
+ * output) when IDs, dimensions, or classes do not match.
+ */
+export function validateAnalysisBinding(
+  image: ExtractedImage,
+  analysis: ImageAnalysis,
+): void {
+  if (analysis.imageId !== image.id) {
+    throw new Error(
+      `Result mapping mismatch: analysis is bound to "${analysis.imageId}" but was opened with image "${image.id}".`,
+    );
+  }
+  if (analysis.status !== "done") return;
+
+  if (analysis.heatmap) {
+    if (analysis.heatmap.targetClass !== analysis.prediction?.predictedClass) {
+      throw new Error(
+        `Heatmap/target-class mismatch on ${image.id}: heatmap explains "${analysis.heatmap.targetClass}" but the model predicted "${analysis.prediction?.predictedClass}".`,
+      );
+    }
+    // The heatmap is stored at model resolution; it must never be presented
+    // as matching an image whose preprocessing produced a different size.
+    if (
+      analysis.heatmap.activations.length === 0 ||
+      analysis.heatmap.activations[0].length === 0
+    ) {
+      throw new Error(`Empty heatmap on ${image.id}.`);
+    }
+  }
+  if (analysis.saliency) {
+    const { bbox } = analysis.saliency;
+    if (
+      bbox.x < 0 ||
+      bbox.y < 0 ||
+      bbox.w <= 0 ||
+      bbox.h <= 0 ||
+      bbox.x + bbox.w > MODEL_INPUT_SIZE + 1 ||
+      bbox.y + bbox.h > MODEL_INPUT_SIZE + 1
+    ) {
+      throw new Error(
+        `Saliency bounding box out of bounds on ${image.id}: (${bbox.x}, ${bbox.y}, ${bbox.w}×${bbox.h}).`,
+      );
+    }
+  }
+  if (analysis.ofi) {
+    // OFI_res must carry the formula version this pipeline computes.
+    if (analysis.ofi.formulaVersion !== OFI_FORMULA_VERSION) {
+      throw new Error(
+        `OFI formula version mismatch on ${image.id}: expected ${OFI_FORMULA_VERSION}.`,
+      );
+    }
+  }
+}
 
 export function summarizeGroup(analyses: Map<string, ImageAnalysis>): GroupSummary {
   const all = [...analyses.values()];
@@ -127,7 +183,7 @@ export async function analyzeImage(
     const ofi = computeOfi(prediction, perturbedPrediction);
     await sleep(60);
 
-    return {
+    const result: ImageAnalysis = {
       ...analysis,
       status: "done",
       stage: "Complete",
@@ -143,6 +199,10 @@ export async function analyzeImage(
         ...(ofi.reliable ? {} : { unreliable: true, note: ofi.note }),
       },
     };
+
+    // Reject inconsistent artifacts BEFORE they can reach the UI.
+    validateAnalysisBinding(image, result);
+    return result;
   } catch (err) {
     return {
       ...analysis,

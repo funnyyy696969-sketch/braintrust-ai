@@ -18,11 +18,21 @@ import {
   Box,
   FileArchive,
   Image as ImageIcon,
+  RotateCcw,
+  Check,
+  Crop,
 } from "lucide-react";
-import { inspectFile } from "@/lib/imaging/fileInspection";
-import { extractPanels, renderPanelOverlay } from "@/lib/imaging/compositeDetection";
+import {
+  extractPanels,
+  renderPanelOverlay,
+  recropPanel,
+  validateGridInput,
+  MAX_GRID_DIM,
+  type PanelRect,
+} from "@/lib/imaging/compositeDetection";
 import { extractAll } from "@/lib/imaging/extraction";
-import { setSession } from "@/lib/imaging/sessionStore";
+import { inspectFile } from "@/lib/imaging/fileInspection";
+import { confirmGrid, setSession } from "@/lib/imaging/sessionStore";
 import type { FileInspectionReport, ExtractedImage } from "@/lib/imaging/types";
 import type { Id } from "../convex/_generated/dataModel";
 
@@ -30,14 +40,35 @@ interface Session {
   file: File;
   previewUrl: string;
   report: FileInspectionReport;
-  /** For composites: overlay + panels before persisting. */
+  /** For composites: data URL of the original image (needed for re-cropping). */
+  compositeDataUrl: string | null;
   overlayUrl: string | null;
   images: ExtractedImage[];
   gridInfo: string | null;
+  /** Whether the current layout still needs explicit user confirmation. */
+  gridConfirmed: boolean;
+  /** Detected rows×cols from automatic detection (null for manual/medical). */
+  autoLayout: { rows: number; cols: number } | null;
+  /** Panel rects in ORIGINAL pixels — drives the crop-coordinate table. */
+  panelRects: PanelRect[];
+  originalWidth: number;
+  originalHeight: number;
 }
 
 const ACCEPT =
   ".png,.jpg,.jpeg,.tif,.tiff,.dcm,.nii,.gz,.zip,image/png,image/jpeg,image/tiff";
+
+/** Quick-select layouts shown as chips (any M×N is still accepted via custom). */
+const LAYOUT_CHIPS: { rows: number; cols: number }[] = [
+  { rows: 1, cols: 1 },
+  { rows: 2, cols: 2 },
+  { rows: 2, cols: 3 },
+  { rows: 3, cols: 2 },
+  { rows: 3, cols: 3 },
+  { rows: 4, cols: 4 },
+  { rows: 5, cols: 5 },
+  { rows: 6, cols: 6 },
+];
 
 const STRUCTURE_ICON: Record<string, React.ReactNode> = {
   single: <ImageIcon className="w-4 h-4" />,
@@ -59,8 +90,11 @@ export default function UploadInspection() {
   const inputRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
-  const [manualGrid, setManualGrid] = useState<string>("");
+  const [session, setSessionState] = useState<Session | null>(null);
+  const [manualRows, setManualRows] = useState("");
+  const [manualCols, setManualCols] = useState("");
+  const [editingCrop, setEditingCrop] = useState<string | null>(null);
+  const [cropDraft, setCropDraft] = useState({ x: "", y: "", w: "", h: "" });
 
   const createScan = useMutation(api.scans.createScan);
   const createImages = useMutation(api.scans.createImages);
@@ -68,7 +102,8 @@ export default function UploadInspection() {
 
   const inspectAndPrepare = useCallback(async (file: File) => {
     setError(null);
-    setSession(null);
+    setSessionState(null);
+    setEditingCrop(null);
     try {
       setBusy("Inspecting file structure…");
       const report = await inspectFile(file);
@@ -77,22 +112,50 @@ export default function UploadInspection() {
       let images: ExtractedImage[] = [];
       let overlayUrl: string | null = null;
       let gridInfo: string | null = null;
+      let compositeDataUrl: string | null = null;
+      let gridConfirmed = true;
+      let autoLayout: { rows: number; cols: number } | null = null;
+      let panelRects: PanelRect[] = [];
+      let originalWidth = 0;
+      let originalHeight = 0;
 
       if (report.kind === "png" || report.kind === "jpeg") {
-        const dataUrl = await fileToDataUrl(file);
+        compositeDataUrl = await fileToDataUrl(file);
         setBusy("Detecting panels / image structure…");
-        const result = await extractPanels(dataUrl);
+        const result = await extractPanels(compositeDataUrl);
         images = result.images;
         gridInfo = `${result.grid.method} · ${result.grid.rows}×${result.grid.cols} · confidence: ${result.grid.confidence}`;
-        overlayUrl = await renderPanelOverlay(dataUrl, result.grid.panels);
+        overlayUrl = await renderPanelOverlay(compositeDataUrl, result.grid.panels);
+        panelRects = result.originalPanels;
+        originalWidth = result.originalWidth;
+        originalHeight = result.originalHeight;
+        // A genuine single-panel image needs no confirmation; a multi-panel
+        // composite must be confirmed before analysis runs.
+        gridConfirmed = result.grid.confirmed;
+        if (result.grid.rows * result.grid.cols > 1) {
+          autoLayout = { rows: result.grid.rows, cols: result.grid.cols };
+        }
       } else if (report.kind !== "unknown") {
         setBusy("Extracting slices / frames…");
         images = await extractAll(file, report);
         gridInfo = `${report.structure} · ${images.length} extracted`;
       }
 
-      setSession({ file, previewUrl, report, overlayUrl, images, gridInfo });
-      setSessionStoreData(file, images);
+      setSessionState({
+        file,
+        previewUrl,
+        report,
+        compositeDataUrl,
+        overlayUrl,
+        images,
+        gridInfo,
+        gridConfirmed,
+        autoLayout,
+        panelRects,
+        originalWidth,
+        originalHeight,
+      });
+      setSessionStoreData(file, images, gridInfo, gridConfirmed);
     } catch (err) {
       setError(err instanceof Error ? err.message : "File inspection failed");
     } finally {
@@ -100,41 +163,140 @@ export default function UploadInspection() {
     }
   }, []);
 
-  const reExtractWithGrid = useCallback(async () => {
-    if (!session) return;
-    const m = manualGrid.trim().match(/^(\d+)\s*[x×]\s*(\d+)$/i);
-    if (!m) {
-      setError("Enter a grid like 2x2 or 3x3.");
-      return;
-    }
+  /** Re-extract using an explicit rows×cols grid — controls actual cropping. */
+  const applyGrid = useCallback(
+    async (rows: number, cols: number) => {
+      if (!session?.compositeDataUrl) return;
+      const invalid = validateGridInput(rows, cols);
+      if (invalid) {
+        setError(invalid);
+        return;
+      }
+      setError(null);
+      try {
+        setBusy(`Extracting ${rows}×${cols} grid (${rows * cols} panels)…`);
+        const result = await extractPanels(session.compositeDataUrl, { rows, cols });
+        const overlayUrl = await renderPanelOverlay(session.compositeDataUrl, result.grid.panels);
+        setSessionState({
+          ...session,
+          images: result.images,
+          overlayUrl,
+          gridInfo: `manual ${rows}×${cols} grid · ${result.images.length} panels`,
+          gridConfirmed: false,
+          autoLayout: null,
+          panelRects: result.originalPanels,
+          originalWidth: result.originalWidth,
+          originalHeight: result.originalHeight,
+        });
+        setSessionStoreData(session.file, result.images, `manual ${rows}×${cols} grid`, false);
+        setEditingCrop(null);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Re-extraction failed");
+      } finally {
+        setBusy(null);
+      }
+    },
+    [session],
+  );
+
+  /** Reset back to automatic detection. */
+  const resetToAuto = useCallback(async () => {
+    if (!session?.compositeDataUrl) return;
     setError(null);
     try {
-      setBusy("Re-extracting with manual grid…");
-      const dataUrl = await fileToDataUrl(session.file);
-      const result = await extractPanels(dataUrl, {
-        rows: parseInt(m[1], 10),
-        cols: parseInt(m[2], 10),
-      });
-      const overlayUrl = await renderPanelOverlay(dataUrl, result.grid.panels);
-      setSession({
+      setBusy("Recalculating automatic detection…");
+      const result = await extractPanels(session.compositeDataUrl);
+      const overlayUrl = await renderPanelOverlay(session.compositeDataUrl, result.grid.panels);
+      setSessionState({
         ...session,
         images: result.images,
         overlayUrl,
-        gridInfo: `manual ${m[1]}×${m[2]} grid`,
+        gridInfo: `${result.grid.method} · ${result.grid.rows}×${result.grid.cols} · confidence: ${result.grid.confidence}`,
+        gridConfirmed: result.grid.confirmed,
+        autoLayout:
+          result.grid.rows * result.grid.cols > 1
+            ? { rows: result.grid.rows, cols: result.grid.cols }
+            : null,
+        panelRects: result.originalPanels,
+        originalWidth: result.originalWidth,
+        originalHeight: result.originalHeight,
       });
+      setSessionStoreData(
+        session.file,
+        result.images,
+        `${result.grid.method} · ${result.grid.rows}×${result.grid.cols}`,
+        result.grid.confirmed,
+      );
+      setManualRows("");
+      setManualCols("");
+      setEditingCrop(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Re-extraction failed");
+      setError(err instanceof Error ? err.message : "Recalculation failed");
     } finally {
       setBusy(null);
     }
-  }, [session, manualGrid]);
+  }, [session]);
 
-  const acceptAndContinue = useCallback(async () => {
+  const submitManualGrid = useCallback(() => {
+    const rows = parseInt(manualRows, 10);
+    const cols = parseInt(manualCols, 10);
+    if (Number.isNaN(rows) || Number.isNaN(cols)) {
+      setError("Enter whole numbers for rows and columns, e.g. 3 and 3.");
+      return;
+    }
+    void applyGrid(rows, cols);
+  }, [manualRows, applyGrid]);
+
+  /** Manual crop correction for a single panel — pixels change, identity does not. */
+  const applyCropCorrection = useCallback(
+    async (imageId: string) => {
+      if (!session?.compositeDataUrl) return;
+      const img = session.images.find((im) => im.id === imageId);
+      const rect = session.panelRects.find((p) => `img-${p.index}` === imageId);
+      if (!img || !rect) {
+        setError("Could not match the panel being corrected.");
+        return;
+      }
+      const x = parseInt(cropDraft.x, 10);
+      const y = parseInt(cropDraft.y, 10);
+      const w = parseInt(cropDraft.w, 10);
+      const h = parseInt(cropDraft.h, 10);
+      if ([x, y, w, h].some((n) => Number.isNaN(n))) {
+        setError("Crop coordinates must be whole numbers.");
+        return;
+      }
+      try {
+        setBusy(`Re-cropping panel ${rect.index + 1}…`);
+        const corrected = await recropPanel(
+          session.compositeDataUrl,
+          { x, y, w, h },
+          { panelIndex: rect.index, row: rect.row, col: rect.col },
+        );
+        const newImages = session.images.map((im) => (im.id === imageId ? corrected : im));
+        const newRects = session.panelRects.map((p) =>
+          p.index === rect.index ? { ...p, x, y, w, h } : p,
+        );
+        setSessionState({ ...session, images: newImages, panelRects: newRects });
+        setSessionStoreData(session.file, newImages, session.gridInfo, session.gridConfirmed);
+        setEditingCrop(null);
+        setError(null);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Crop correction failed");
+      } finally {
+        setBusy(null);
+      }
+    },
+    [session, cropDraft],
+  );
+
+  /** Confirm the current layout and persist — the only path into analysis. */
+  const confirmAndContinue = useCallback(async () => {
     if (!session) return;
     if (!session.images.length) {
       setError("No valid images were extracted from this file.");
       return;
     }
+    confirmGrid(true);
     try {
       setBusy("Saving extraction record…");
       const r = session.report;
@@ -155,6 +317,7 @@ export default function UploadInspection() {
           seriesInfo: r.seriesInfo,
           voxelSpacing: r.voxelSpacing,
           gridInfo: session.gridInfo,
+          gridConfirmed: true,
         }),
       });
       await createImages({
@@ -183,6 +346,7 @@ export default function UploadInspection() {
   }, [session, createScan, createImages, finalizeScan, navigate]);
 
   const r = session?.report;
+  const isComposite = (session?.panelRects.length ?? 0) > 1;
 
   return (
     <div className="min-h-screen bg-white">
@@ -343,56 +507,202 @@ export default function UploadInspection() {
                     <p className="mt-0.5 text-neutral-500 text-xs">{r.identificationNote}</p>
                   </div>
                 </div>
-
-                <div className="mt-4 flex gap-3">
-                  <Button variant="outline" className="border-neutral-300" onClick={() => setSession(null)}>
-                    <X className="w-4 h-4 mr-1" /> Choose a different file
-                  </Button>
-                  <Button
-                    onClick={acceptAndContinue}
-                    disabled={busy !== null || !session.images.length}
-                    className="bg-[#12355B] hover:bg-[#1a4570]"
-                  >
-                    {busy ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <ArrowRight className="w-4 h-4 mr-2" />}
-                    Continue with {session.images.length} extracted image{session.images.length === 1 ? "" : "s"}
-                  </Button>
-                </div>
               </CardContent>
             </Card>
 
             {session.overlayUrl && (
               <Card className="border-neutral-200">
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-lg">Panel detection</CardTitle>
+                  <CardTitle className="text-lg">Grid confirmation</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <p className="text-sm text-neutral-600">
-                    Method: <span className="font-medium text-neutral-900">{session.gridInfo}</span>.
-                    Boundaries were detected from image content (uniform separator rows and columns),
-                    and every panel is cropped from the original full-resolution image — nothing is
-                    resized, stretched, or rotated.
-                  </p>
+                  <div className="p-3 rounded-lg border bg-[#F3F6F9] border-[#12355B]/15 text-sm text-[#263238]">
+                    Multiple image panels detected. Please confirm the grid layout before analysis —
+                    the selected layout controls the actual extraction, not just the displayed count.
+                    {session.autoLayout && (
+                      <span className="block mt-1 text-neutral-600">
+                        Automatic detection suggests{" "}
+                        <span className="font-semibold">
+                          {session.autoLayout.rows}×{session.autoLayout.cols}
+                        </span>{" "}
+                        ({session.autoLayout.rows * session.autoLayout.cols} panels) but is not certain.
+                      </span>
+                    )}
+                  </div>
+
                   <img
                     src={session.overlayUrl}
-                    alt="Detected panel boundaries"
+                    alt="Panel boundaries over the original image"
                     className="w-full rounded-lg border border-neutral-200"
                   />
-                  <div className="flex flex-wrap items-end gap-3">
-                    <div>
-                      <label className="text-xs text-neutral-500 block mb-1">
-                        Detection unsure? Force a grid
-                      </label>
-                      <input
-                        value={manualGrid}
-                        onChange={(e) => setManualGrid(e.target.value)}
-                        placeholder="e.g. 2x2 or 3x3"
-                        className="border border-neutral-300 rounded-md px-3 py-2 text-sm w-40"
-                      />
+
+                  <div className="space-y-3">
+                    <p className="text-xs font-medium text-neutral-500 uppercase tracking-wide">
+                      Select a layout
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {LAYOUT_CHIPS.map(({ rows, cols }) => (
+                        <button
+                          key={`${rows}x${cols}`}
+                          onClick={() => void applyGrid(rows, cols)}
+                          disabled={busy !== null}
+                          className={`px-3 py-1.5 text-sm rounded-md border transition-colors ${
+                            session.gridInfo?.includes(`manual ${rows}×${cols}`)
+                              ? "bg-[#008C95] text-white border-[#008C95]"
+                              : "bg-white text-neutral-700 border-neutral-300 hover:border-[#008C95] hover:text-[#008C95]"
+                          } disabled:opacity-50`}
+                        >
+                          {rows}×{cols}
+                          <span className="ml-1 text-xs opacity-70">({rows * cols})</span>
+                        </button>
+                      ))}
                     </div>
-                    <Button variant="outline" className="border-neutral-300" onClick={reExtractWithGrid}>
-                      Re-extract
-                    </Button>
+
+                    <div className="flex flex-wrap items-end gap-3 pt-1">
+                      <div>
+                        <label className="text-xs text-neutral-500 block mb-1">
+                          Custom layout (rows × columns, up to {MAX_GRID_DIM}×{MAX_GRID_DIM})
+                        </label>
+                        <div className="flex items-center gap-2">
+                          <input
+                            value={manualRows}
+                            onChange={(e) => setManualRows(e.target.value.replace(/[^\d]/g, ""))}
+                            placeholder="rows"
+                            inputMode="numeric"
+                            className="border border-neutral-300 rounded-md px-3 py-2 text-sm w-20"
+                          />
+                          <span className="text-neutral-500">×</span>
+                          <input
+                            value={manualCols}
+                            onChange={(e) => setManualCols(e.target.value.replace(/[^\d]/g, ""))}
+                            placeholder="cols"
+                            inputMode="numeric"
+                            className="border border-neutral-300 rounded-md px-3 py-2 text-sm w-20"
+                          />
+                          <Button
+                            variant="outline"
+                            className="border-neutral-300"
+                            onClick={submitManualGrid}
+                            disabled={busy !== null || !manualRows || !manualCols}
+                          >
+                            Recalculate
+                          </Button>
+                        </div>
+                      </div>
+                      <Button
+                        variant="outline"
+                        className="border-neutral-300"
+                        onClick={() => void resetToAuto()}
+                        disabled={busy !== null}
+                      >
+                        <RotateCcw className="w-4 h-4 mr-1" /> Reset
+                      </Button>
+                    </div>
+
+                    {isComposite && !session.gridConfirmed && (
+                      <div className="p-3 rounded-lg border bg-[#E58A2B]/5 border-[#E58A2B]/30 text-sm text-[#B36A1D] flex items-start gap-2">
+                        <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                        <span>
+                          The current layout has not been confirmed. Analysis stays locked until you
+                          verify the {session.images.length} extracted panel
+                          {session.images.length === 1 ? "" : "s"} below.
+                        </span>
+                      </div>
+                    )}
                   </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {session.panelRects.length > 1 && (
+              <Card className="border-neutral-200">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg">Crop coordinates</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="text-left text-xs text-neutral-500 border-b border-neutral-200">
+                          <th className="py-2 pr-4">Panel</th>
+                          <th className="py-2 pr-4">Grid position</th>
+                          <th className="py-2 pr-4">X, Y</th>
+                          <th className="py-2 pr-4">Width × Height</th>
+                          <th className="py-2">Correction</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {session.panelRects.map((p) => {
+                          const imageId = `img-${p.index}`;
+                          const isEditing = editingCrop === imageId;
+                          return (
+                            <tr key={imageId} className="border-b border-neutral-100">
+                              <td className="py-2 pr-4 font-medium text-neutral-800">
+                                #{p.index + 1}
+                              </td>
+                              <td className="py-2 pr-4 text-neutral-600">
+                                row {p.row + 1}, col {p.col + 1}
+                              </td>
+                              <td className="py-2 pr-4 text-neutral-600 font-mono text-xs">
+                                {p.x}, {p.y}
+                              </td>
+                              <td className="py-2 pr-4 text-neutral-600 font-mono text-xs">
+                                {p.w} × {p.h}
+                              </td>
+                              <td className="py-2">
+                                <button
+                                  onClick={() => {
+                                    setEditingCrop(isEditing ? null : imageId);
+                                    setCropDraft({ x: String(p.x), y: String(p.y), w: String(p.w), h: String(p.h) });
+                                  }}
+                                  className="text-[#008C95] hover:underline text-xs inline-flex items-center gap-1"
+                                >
+                                  <Crop className="w-3.5 h-3.5" /> Adjust
+                                </button>
+                                {isEditing && (
+                                  <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                                    {(["x", "y", "w", "h"] as const).map((k) => (
+                                      <input
+                                        key={k}
+                                        value={cropDraft[k]}
+                                        onChange={(e) =>
+                                          setCropDraft((d) => ({ ...d, [k]: e.target.value.replace(/[^\d]/g, "") }))
+                                        }
+                                        placeholder={k}
+                                        inputMode="numeric"
+                                        className="border border-neutral-300 rounded px-2 py-1 text-xs w-16"
+                                      />
+                                    ))}
+                                    <Button
+                                      size="sm"
+                                      className="bg-[#008C95] hover:bg-[#00767e] h-7 px-2 text-xs"
+                                      onClick={() => void applyCropCorrection(imageId)}
+                                      disabled={busy !== null}
+                                    >
+                                      Apply
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      className="h-7 px-2 text-xs"
+                                      onClick={() => setEditingCrop(null)}
+                                    >
+                                      Cancel
+                                    </Button>
+                                  </div>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                  <p className="text-xs text-neutral-500 mt-3">
+                    Coordinates are in original image pixels ({session.originalWidth} ×{" "}
+                    {session.originalHeight}). Corrections re-crop only the selected panel and keep
+                    its image ID, panel number, and grid position unchanged.
+                  </p>
                 </CardContent>
               </Card>
             )}
@@ -424,6 +734,36 @@ export default function UploadInspection() {
                 </CardContent>
               </Card>
             )}
+
+            <div className="flex flex-wrap gap-3">
+              <Button variant="outline" className="border-neutral-300" onClick={() => setSessionState(null)}>
+                <X className="w-4 h-4 mr-1" /> Choose a different file
+              </Button>
+              {isComposite && !session.gridConfirmed ? (
+                <Button
+                  onClick={() => void confirmAndContinue()}
+                  disabled={busy !== null || !session.images.length}
+                  className="bg-[#2E8B57] hover:bg-[#257349]"
+                >
+                  {busy ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <Check className="w-4 h-4 mr-2" />
+                  )}
+                  Confirm extraction ({session.images.length} panel
+                  {session.images.length === 1 ? "" : "s"}) &amp; continue
+                </Button>
+              ) : (
+                <Button
+                  onClick={() => void confirmAndContinue()}
+                  disabled={busy !== null || !session.images.length}
+                  className="bg-[#12355B] hover:bg-[#1a4570]"
+                >
+                  {busy ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <ArrowRight className="w-4 h-4 mr-2" />}
+                  Continue with {session.images.length} extracted image{session.images.length === 1 ? "" : "s"}
+                </Button>
+              )}
+            </div>
           </>
         )}
       </main>
@@ -443,7 +783,7 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
 function describeSource(source: ExtractedImage["source"]): string {
   switch (source.type) {
     case "single-file": return "whole file";
-    case "composite-panel": return `panel ${source.panelIndex} (row ${source.row + 1}, col ${source.col + 1})`;
+    case "composite-panel": return `panel ${source.panelIndex + 1} (row ${source.row + 1}, col ${source.col + 1})`;
     case "tiff-page": return `TIFF page ${source.page + 1}`;
     case "dicom-frame": return `frame ${source.frame + 1}`;
     case "nifti-slice": return `${source.axis} slice ${source.index + 1}`;
@@ -461,11 +801,13 @@ function fileToDataUrl(file: Blob): Promise<string> {
 }
 
 /** Mirror the extraction into the in-memory session store for later pages. */
-function setSessionStoreData(file: File, images: ExtractedImage[]) {
+function setSessionStoreData(file: File, images: ExtractedImage[], gridInfo: string | null, gridConfirmed: boolean) {
   setSession({
     file,
     images,
     modelName: "demo-pixel-stats-v1",
     formulaVersion: "OFI_res-v1.0",
+    gridInfo,
+    gridConfirmed,
   });
 }

@@ -208,7 +208,7 @@ export default function MRIAnalysis() {
                 </CardHeader>
                 <CardContent>
                   <div className="flex flex-col md:flex-row gap-6">
-                    <img src={previewUrl} alt="preview" className="w-full md:w-56 h-48 object-contain bg-neutral-50 border border-neutral-200 rounded-lg" />
+                    <img src={previewUrl ?? undefined} alt="preview" className="w-full md:w-56 h-48 object-contain bg-neutral-50 border border-neutral-200 rounded-lg" />
                     <div className="flex-1 grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
                       <Row label="File name" value={report.fileName ?? ""} />
                       <Row label="File size" value={formatBytes(report.fileSize)} />

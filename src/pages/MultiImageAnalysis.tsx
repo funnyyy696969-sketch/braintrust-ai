@@ -15,10 +15,14 @@ import {
   Info,
   ShieldAlert,
 } from "lucide-react";
-import type { ImageAnalysis } from "@/lib/imaging/types";
+import type { ExtractedImage, ImageAnalysis } from "@/lib/imaging/types";
 import { analyzeAll, summarizeGroup } from "@/lib/imaging/analysisPipeline";
 import { PERTURBATION_METHODS, type PerturbationMethod } from "@/lib/imaging/perturbation";
-import { getSession, setAnalyses as persistAnalyses } from "@/lib/imaging/sessionStore";
+import {
+  getSession,
+  isGridConfirmed,
+  setAnalyses as persistAnalyses,
+} from "@/lib/imaging/sessionStore";
 import type { Id } from "../convex/_generated/dataModel";
 
 type InMemoryImage = import("@/lib/imaging/types").ExtractedImage;
@@ -47,11 +51,18 @@ export default function MultiImageAnalysis() {
   // In-memory copy of the extracted images (data URLs). Extracted in the
   // upload session on the same machine; re-extract if the page was reloaded.
   const [images, setImages] = useState<InMemoryImage[] | null>(null);
+  /** False when the session has images but the grid layout was never confirmed. */
+  const [gridLocked, setGridLocked] = useState(false);
 
   // Hydrate from the session store when the page mounts.
   useMemo(() => {
     const s = getSession();
-    if (s?.images.length) setImages(s.images);
+    if (s?.images.length) {
+      setImages(s.images);
+      // Composite uploads must pass through grid confirmation before analysis.
+      const isComposite = s.images.some((im) => im.source.type === "composite-panel");
+      setGridLocked(isComposite && !s.gridConfirmed);
+    }
   }, []);
   const [method, setMethod] = useState<PerturbationMethod>("gaussian-blur");
   const [running, setRunning] = useState(false);
@@ -67,6 +78,11 @@ export default function MultiImageAnalysis() {
 
   const runPipeline = useCallback(async () => {
     if (!images || !scanId) return;
+    if (!isGridConfirmed()) {
+      setGridLocked(true);
+      setError("The grid layout has not been confirmed. Return to Upload & Inspection and confirm the extraction before running analysis.");
+      return;
+    }
     setRunning(true);
     setError(null);
     setAnalyses(new Map());
@@ -227,8 +243,32 @@ export default function MultiImageAnalysis() {
           </div>
         )}
 
+        {images && gridLocked && (
+          <Card className="border-[#E58A2B]/30 bg-[#E58A2B]/5">
+            <CardContent className="pt-6">
+              <div className="flex items-start gap-3">
+                <ShieldAlert className="w-5 h-5 text-[#E58A2B] flex-shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <p className="font-medium text-[#B36A1D]">Grid layout not confirmed</p>
+                  <p className="text-sm text-neutral-600 mt-1">
+                    These panels were extracted from a composite image, but the grid layout was not
+                    explicitly confirmed. Analysis is locked until the layout is verified so that
+                    Grad-CAM and OFI<sub>res</sub> are computed on correctly separated panels.
+                  </p>
+                  <Button
+                    className="mt-3 bg-[#12355B] hover:bg-[#1a4570]"
+                    onClick={() => navigate("/upload")}
+                  >
+                    Confirm grid layout
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {images && (
-          <Card className="border-neutral-200">
+          <Card className={`border-neutral-200 ${gridLocked ? "opacity-50 pointer-events-none" : ""}`}>
             <CardHeader className="pb-3">
               <CardTitle className="text-lg flex items-center gap-2">
                 <Play className="w-5 h-5 text-[#008C95]" />
@@ -328,12 +368,19 @@ export default function MultiImageAnalysis() {
                       />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-3 mb-2">
-                          <div>
-                            <p className="font-semibold text-neutral-900">{im.id}</p>
-                            <p className="text-xs text-neutral-500">
-                              {im.width} × {im.height} · {im.channels} channel{im.channels === 1 ? "" : "s"}
-                            </p>
-                          </div>
+                        <div>
+                          <p className="font-semibold text-neutral-900">
+                            {im.id}
+                            {im.source.type === "composite-panel" && (
+                              <span className="ml-2 text-xs font-normal text-neutral-500">
+                                panel {im.source.panelIndex + 1} · row {im.source.row + 1}, col {im.source.col + 1}
+                              </span>
+                            )}
+                          </p>
+                          <p className="text-xs text-neutral-500">
+                            {im.width} × {im.height} · {im.channels} channel{im.channels === 1 ? "" : "s"}
+                          </p>
+                        </div>
                           {a?.status === "done" && (
                             <CheckCircle className="w-5 h-5 text-[#2E8B57] flex-shrink-0" />
                           )}
@@ -374,6 +421,13 @@ export default function MultiImageAnalysis() {
                               </p>
                             </div>
                           </div>
+                        )}
+                        {a?.status === "done" && (
+                          <p className="mt-2 text-xs text-neutral-500">
+                            Grad-CAM: {a.heatmap ? "generated for this image" : "not generated"} ·
+                            target class {a.heatmap?.targetClass ?? "—"} ·
+                            binding validated ✓
+                          </p>
                         )}
 
                         <div className="mt-3 flex items-center justify-between">
