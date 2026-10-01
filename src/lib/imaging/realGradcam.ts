@@ -44,12 +44,21 @@ import { MODEL_INPUT_SIZE } from "../imaging/preprocessing";
 
 const MODEL_URL = "/models/brain_cam_net.onnx";
 
-// The ORT wasm runtime binary + loader, copied from
-// node_modules/onnxruntime-web/dist into public/onnx/. Without an explicit
-// wasmPaths, ORT resolves these relative to the bundler's module URL, which
-// the dev server answers with index.html — producing the infamous
-// "expected magic word 00 61 73 6d, found 3c 21 64 6f" ("<!do") error.
-const WASM_PATHS = "/onnx/";
+// The ORT wasm runtime binary, copied from node_modules/onnxruntime-web/dist
+// into public/onnx/. The loader itself is EMBEDDED in the bundle; only the
+// .wasm binary needs redirecting. Two constraints drove this shape:
+//
+//  • A plain string wasmPaths makes ORT dynamically import an external
+//    "ort-wasm-simd-threaded.mjs" — Vite then statically resolves that path
+//    to the /public file and hard-fails the build ("should not be imported
+//    from source code"). The object form keeps the embedded loader.
+//  • Without any override, ORT guesses a module-relative URL that the dev
+//    server answers with index.html, producing the infamous
+//    "expected magic word 00 61 73 6d, found 3c 21 64 6f" ("<!do") error.
+// A plain root-absolute string (NOT new URL(..., import.meta.url)) keeps the
+// path opaque to Vite's asset resolver — public files must never be statically
+// referenced from source code.
+const WASM_BINARY_URL = "/onnx/ort-wasm-simd-threaded.wasm";
 
 // ── Runtime singleton ───────────────────────────────────────────────────────
 
@@ -82,7 +91,7 @@ async function loadCamModel(): Promise<CamModel> {
   loading = (async () => {
     ort.env.wasm.numThreads = 1; // simple, no cross-origin isolation needed
     ort.env.wasm.simd = true;
-    ort.env.wasm.wasmPaths = WASM_PATHS;
+    ort.env.wasm.wasmPaths = { wasm: WASM_BINARY_URL };
     const session = await ort.InferenceSession.create(MODEL_URL, {
       executionProviders: ["wasm"],
       graphOptimizationLevel: "all",
