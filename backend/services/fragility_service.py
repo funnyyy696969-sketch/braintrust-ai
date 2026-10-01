@@ -7,7 +7,7 @@ Formula (v1.0, project-defined — NOT a clinically validated standard):
 
   target  : the class predicted on the clean image
   ε       : 1e-8 numerical floor
-  ~0      : robust      ~1 : confidence collapsed      >1 : flipped
+  ~0      : robust      ~1 : confidence collapsed (formula upper bound)
 """
 
 from __future__ import annotations

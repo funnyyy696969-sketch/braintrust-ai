@@ -24,17 +24,14 @@ def test_no_change_gives_zero():
 def test_full_collapse_gives_one():
     r = compute_ofi(0.9, 0.0)
     assert abs(r.value - 1.0) < 1e-3
-    assert r.confidence_change == pytest_approx(0.9)
+    assert abs(r.confidence_change - 0.9) < 1e-6
 
 
-def pytest_approx(v):
-    return abs(v - 0.9) < 1e-6
-
-
-def test_flip_exceeds_one():
-    r = compute_ofi(0.8, -0.2 if False else 0.0)
-    # p_pert can never be negative; a "flip" manifests as p_pert→0 while p_orig stays high
-    assert r.value >= 1.0
+def test_flip_caps_at_one():
+    # p_pert can never go below 0, so (p_orig − 0)/(p_orig + ε) ≈ 1 — the
+    # formula's upper bound. A "flip" manifests as value → 1, not > 1.
+    r = compute_ofi(0.8, 0.0)
+    assert 0.999 <= r.value <= 1.0
 
 
 def test_reliability_guard():

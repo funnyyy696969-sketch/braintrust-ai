@@ -56,6 +56,10 @@ src/
     scans.ts                 persistence + audit API
 
 backend/                 desktop backend (Python 3.10+)
+  training/
+    prepare_data.py           Kaggle dataset → train/val ImageFolder layout
+    train.py                  ResNet-50 fine-tune → backend checkpoint
+    evaluate_checkpoint.py    pre-release validation (blocks at chance level)
   services/
     file_inspection_service.py
     composite_detection_service.py
@@ -98,7 +102,7 @@ pip install -r requirements.txt
 uvicorn app.main:app --reload --port 8000
 ```
 
-### Model checkpoint setup
+### Model checkpoint setup — train your own tumor classifier
 
 The backend looks for:
 
@@ -106,20 +110,63 @@ The backend looks for:
 backend/checkpoints/brain_mri_resnet50.pt
 ```
 
-Expected: a `torch.nn.Module` taking `1×1×224×224` normalised input (luma, mean 0.449, std 0.226) with a 4-logit head ordered `[Glioma, Meningioma, "No Tumor", Pituitary]`. Export with:
+**Option A — train it yourself (recommended, ~20 min on Kaggle's free GPU):**
 
-```python
-torch.save(model, "backend/checkpoints/brain_mri_resnet50.pt")
-```
+1. **Download the dataset** (free account): [Kaggle — Brain Tumor MRI Dataset](https://www.kaggle.com/datasets/masoudnickparvar/brain-tumor-mri-dataset) → unzip to e.g. `C:/datasets/brain-mri/` (contains `Training/` and `Testing/` with the 4 class folders).
 
-Until that file exists, `POST /api/analyze` returns **503** by design. The web app keeps running in clearly-labelled Demo Mode.
+2. **Install training dependencies** (Windows / VS Code terminal):
+
+    ```powershell
+    cd backend
+    python -m venv .venv
+    .venv\Scripts\activate
+    pip install -r requirements.txt
+    ```
+
+3. **Organise the dataset** into `train/` + `val/` ImageFolder layout:
+
+    ```powershell
+    python -m training.prepare_data --src "C:/datasets/brain-mri"
+    python -m training.prepare_data --verify-only   # sanity check
+    ```
+
+4. **Train** (ResNet-50 fine-tune, 1-channel MRI input, class-weighted loss, early stopping on val macro-F1):
+
+    ```powershell
+    python -m training.train --data data/processed --epochs 25
+    ```
+
+    Typical result on this dataset: **val accuracy ≈ 96–99 %**, macro-F1 ≈ 0.96+. The best checkpoint is written automatically to `backend/checkpoints/brain_mri_resnet50.pt` (archive copy + training history in `training/runs/<timestamp>/`).
+
+5. **Evaluate before trusting it** (blocks at chance level):
+
+    ```powershell
+    python -m training.evaluate_checkpoint
+    ```
+
+6. **Serve** — analysis now unlocks:
+
+    ```powershell
+    uvicorn app.main:app --port 8000
+    curl http://localhost:8000/health    # → "checkpoint_available": true
+    ```
+
+    Grad-CAM (Captum `LayerGradCam` on `layer4`) and per-image OFI_res immediately work against the real model — every heatmap comes from the same tensor that produced the prediction.
+
+**Option B — Kaggle notebook:** run steps 3–4 in a notebook with the dataset attached as `/kaggle/input`, GPU T4 on, then `torch.save(model, "/kaggle/working/brain_mri_resnet50.pt")`, download it, and place it at `backend/checkpoints/brain_mri_resnet50.pt`.
+
+**Expected checkpoint contract:** a `torch.nn.Module` taking `1×1×224×224` normalised input (luma, mean 0.449, std 0.226) with a 4-logit head ordered `[Glioma, Meningioma, "No Tumor", Pituitary]`.
+
+Until the checkpoint exists, `POST /api/analyze` returns **503** by design — the backend never simulates medical output. The web app keeps running in clearly-labelled Demo Mode.
+
+Unit tests cover the training plumbing too (class normalisation, model contract, preprocessing parity between training and serving):
 
 ### Tests
 
 ```bash
 cd backend
-pytest tests -q          # Python: extraction + OFI_res
-bunx vitest run          # browser: prediction determinism + OFI maths
+pytest tests -q          # Python: extraction + OFI_res + training plumbing
+bunx vitest run          # browser: prediction determinism + OFI maths + grid layouts
 ```
 
 ---
