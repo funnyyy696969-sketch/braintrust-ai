@@ -10,7 +10,7 @@
  * to ONNX) exposes TWO outputs from ONE forward pass:
  *
  *    logits        → 1×4 class scores (also used for prediction)
- *    cam_features  → 1×64×7×7  (the last conv feature map A_k)
+ *    cam_features  → 1×64×14×14  (the last conv feature map A_k)
  *
  * Grad-CAM computes, per class c:
  *
@@ -23,7 +23,7 @@
  * hard-coding them, so the CAM always reflects the actual trained network —
  * if the checkpoint is retrained, the CAM changes with it.
  *
- * The CAM is computed at the feature map's native 7×7, ReLU-ed, min-max
+ * The CAM is computed at the feature map's native 14×14, ReLU-ed, min-max
  * normalised, then bilinearly upscaled to the ORIGINAL image's H×W so the
  * overlay always matches the MRI pixel-for-pixel.
  *
@@ -33,12 +33,23 @@
  * quietly showing a synthetic gradient.
  */
 
-import * as ort from "onnxruntime-web";
+// onnxruntime-web/wasm — the wasm-only build. We only ever ask for the
+// "wasm" execution provider, and this entry resolves its runtime binary as
+// "ort-wasm-simd-threaded.wasm" (14 MB) instead of the 28 MB jsep build that
+// the default entry expects.
+import * as ort from "onnxruntime-web/wasm";
 import { CLASS_LABELS } from "../imaging/types";
 import type { ClassLabel, HeatmapResult, PredictionResult, SaliencyMask } from "../imaging/types";
 import { MODEL_INPUT_SIZE } from "../imaging/preprocessing";
 
 const MODEL_URL = "/models/brain_cam_net.onnx";
+
+// The ORT wasm runtime binary + loader, copied from
+// node_modules/onnxruntime-web/dist into public/onnx/. Without an explicit
+// wasmPaths, ORT resolves these relative to the bundler's module URL, which
+// the dev server answers with index.html — producing the infamous
+// "expected magic word 00 61 73 6d, found 3c 21 64 6f" ("<!do") error.
+const WASM_PATHS = "/onnx/";
 
 // ── Runtime singleton ───────────────────────────────────────────────────────
 
@@ -71,6 +82,7 @@ async function loadCamModel(): Promise<CamModel> {
   loading = (async () => {
     ort.env.wasm.numThreads = 1; // simple, no cross-origin isolation needed
     ort.env.wasm.simd = true;
+    ort.env.wasm.wasmPaths = WASM_PATHS;
     const session = await ort.InferenceSession.create(MODEL_URL, {
       executionProviders: ["wasm"],
       graphOptimizationLevel: "all",
@@ -417,7 +429,7 @@ export function disposeCamModel(): void {
  * Compute a REAL Grad-CAM for `tensor` (normalised 224×224 luma) w.r.t.
  * `targetClass`. Uses the same forward activations the logit came from, and
  * the trained head weights as the spatial-gradient pooling (exact for a
- * conv→GAP→linear head). Returns the raw 7×7 CAM plus rendered overlays.
+ * conv→GAP→linear head). Returns the raw 14×14 CAM plus rendered overlays.
  */
 export async function generateRealGradCam(
   tensor: Float32Array,
@@ -450,7 +462,7 @@ export async function generateRealGradCam(
     alphas[k] = model.headWeights[targetIdx * C + k];
   }
 
-  // CAM = ReLU( Σ_k alpha_k · A_k ), computed at native 7×7.
+  // CAM = ReLU( Σ_k alpha_k · A_k ), computed at native 14×14.
   const cam = new Float32Array(H * W);
   let camMax = -Infinity;
   for (let i = 0; i < cam.length; i++) {
@@ -468,7 +480,7 @@ export async function generateRealGradCam(
   const span = camMax - camMin || 1;
   for (let i = 0; i < cam.length; i++) cam[i] = (cam[i] - camMin) / span;
 
-  // Store the raw 7×7 matrix for the detail view / tests.
+  // Store the raw 14×14 matrix for the detail view / tests.
   const matrix: number[][] = [];
   for (let y = 0; y < H; y++) {
     matrix.push(Array.from(cam.slice(y * W, (y + 1) * W)));
