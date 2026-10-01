@@ -206,8 +206,8 @@ function parseLinearWeight(
       pos = p1;
       if (field === 7 && wire === 2) {
         const [glen, p2] = readVarint(pos);
-        const graphStart = pos;
-        const graphEnd = pos + glen;
+        const graphStart = p2; // p2 = content start, AFTER the length varint
+        const graphEnd = p2 + glen;
         pos = graphEnd;
         found = scanGraph(view, graphStart, graphEnd, numClasses);
         if (found) return found;
@@ -247,8 +247,8 @@ function scanGraph(
     if (field === 5 && wire === 2) {
       // initializer TensorProto
       const [len, p2] = readVarint(pos);
-      const tStart = pos;
-      const tEnd = pos + len;
+      const tStart = p2; // p2 = content start, AFTER the length varint
+      const tEnd = p2 + len;
       pos = tEnd;
       const parsed = parseTensor(view, tStart, tEnd, numClasses);
       if (parsed) return parsed;
@@ -289,33 +289,38 @@ function parseTensor(
     }
     return [r, p];
   };
-  const zigzag = (v: number) => (v >>> 1) ^ -(v & 1);
-
   while (pos < end) {
     const [tag, p1] = readVarint(pos);
     const field = tag >> 3;
     const wire = tag & 7;
     pos = p1;
     if (field === 1 && wire === 2) {
-      // packed repeated int64 dims
+      // packed repeated int64 dims — PLAIN varints (int64 is not zigzag;
+      // only sint64 is. The previous zigzag decode was wrong.)
       const [len, p2] = readVarint(pos);
       const s = pos;
       pos = p2;
-      dims = [];
       let p = s;
       while (p < p2) {
         const [v, np] = readVarint(p);
         p = np;
-        dims.push(zigzag(v));
+        dims.push(v);
       }
+    } else if (field === 1 && wire === 0) {
+      // non-packed repeated int64 dims: ONE varint per field tag. Python's
+      // protobuf emits this form for TensorProto.dims (dims is not declared
+      // [packed=true]), e.g. 08 04 08 40 for [4, 64].
+      const [v, np] = readVarint(pos);
+      dims.push(v);
+      pos = np;
     } else if (field === 2 && wire === 0) {
       dataType = readVarint(pos)[0];
       pos = readVarint(pos)[1];
     } else if (field === 9 && wire === 2) {
       const [len, p2] = readVarint(pos);
-      rawDataStart = pos;
+      rawDataStart = p2; // content starts AFTER the length varint
       rawDataLen = len;
-      pos = p2;
+      pos = p2 + len; // SKIP the raw float bytes — they are not protobuf
     } else if (wire === 0) {
       pos = readVarint(pos)[1];
     } else if (wire === 2) {
