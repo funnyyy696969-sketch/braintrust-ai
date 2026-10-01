@@ -144,6 +144,14 @@ backend/checkpoints/brain_mri_resnet50.pt
     python -m training.evaluate_checkpoint
     ```
 
+**No dataset handy? Prove the whole loop first:**
+
+    ```powershell
+    python -m training.smoke_test
+    ```
+
+    Generates a synthetic 4-class texture set, trains the real pipeline for 3 epochs, serves a prediction + Captum Grad-CAM through the real services, then removes the synthetic checkpoint so the app stays honest. All 5 stages must print PASS.
+
 6. **Serve** — analysis now unlocks:
 
     ```powershell
@@ -165,8 +173,9 @@ Unit tests cover the training plumbing too (class normalisation, model contract,
 
 ```bash
 cd backend
-pytest tests -q          # Python: extraction + OFI_res + training plumbing
-bunx vitest run          # browser: prediction determinism + OFI maths + grid layouts
+pytest tests -q                # Python: extraction + OFI_res + training plumbing
+python -m training.smoke_test  # end-to-end: train → serve → Grad-CAM → restore
+bunx vitest run                # browser: prediction determinism + OFI maths + grid layouts
 ```
 
 ---
