@@ -24,11 +24,26 @@ def gradcam(
     model,
     tensor,  # 1×C×H×W torch tensor (already preprocessed)
     target_class_index: int,
-    layer_name: str = "layer4",
+    layer_name: str | None = None,
 ) -> GradCamResult:
     import torch
     from captum.attr import LayerGradCam
 
+    # Resolve the Grad-CAM layer: callers may pass one explicitly (ResNet-50's
+    # "layer4"); otherwise auto-detect the last conv feature map so any
+    # architecture works without a KeyError.
+    if layer_name is None:
+        if hasattr(model, "layer4"):
+            layer_name = "layer4"
+        else:
+            conv_names = [
+                name
+                for name, mod in model.named_modules()
+                if isinstance(mod, torch.nn.Conv2d)
+            ]
+            if not conv_names:
+                raise ValueError("Model has no Conv2d layer — Grad-CAM is not applicable.")
+            layer_name = conv_names[-1]
     layer = dict(model.named_modules())[layer_name]
     lgc = LayerGradCam(model, layer)
     attrs = lgc.attribute(tensor, target=target_class_index, relu_attributions=True)
