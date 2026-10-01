@@ -18,7 +18,7 @@ import type {
 import { CLASS_LABELS } from "../imaging/types";
 import { preprocessImage, MODEL_INPUT_SIZE } from "./preprocessing";
 import { predict, MODEL_NAME } from "./prediction";
-import { generateGradCam } from "./gradcam";
+import { generateRealGradCam } from "./realGradcam";
 import { perturbImage, type PerturbationMethod } from "./perturbation";
 import { computeOfi, OFI_FORMULA_VERSION } from "./fragility";
 
@@ -155,9 +155,14 @@ export async function analyzeImage(
     const prediction = predict(pre.tensor);
     await sleep(60);
 
-    // 3. Grad-CAM (per-image, same tensor the classifier saw)
-    onStage(image.id, "Generating Grad-CAM…");
-    const { heatmap, saliency } = generateGradCam(pre.tensor, prediction);
+    // 3. Grad-CAM (per-image, REAL network CAM on the same tensor the
+    //    classifier saw — no synthetic patterns; throws honestly if the
+    //    ONNX model is missing so the UI shows an error, never a fake map).
+    onStage(image.id, "Generating Grad-CAM (real CNN)…");
+    const { heatmap, saliency } = await generateRealGradCam(
+      pre.tensor,
+      prediction.predictedClass,
+    );
     await sleep(60);
 
     // 4. Perturbation (per-image, salient region only)

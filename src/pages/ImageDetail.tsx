@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,10 +11,17 @@ import {
   Info,
   Download,
   ShieldCheck,
+  Loader2,
 } from "lucide-react";
 import type { ExtractedImage, ImageAnalysis } from "@/lib/imaging/types";
 import { validateAnalysisBinding } from "@/lib/imaging/analysisPipeline";
 import { getImage, getAnalysis, getSession } from "@/lib/imaging/sessionStore";
+import {
+  camModelStatus,
+  disposeCamModel,
+  generateRealGradCam,
+} from "@/lib/imaging/realGradcam";
+import { CLASS_LABELS, type ClassLabel } from "@/lib/imaging/types";
 
 /** Panel/grid description from an image's extraction source. */
 function panelInfo(source: ExtractedImage["source"]): {
@@ -41,6 +48,34 @@ function panelInfo(source: ExtractedImage["source"]): {
     default:
       return { panelNumber: 1, gridPosition: "whole file" };
   }
+}
+
+/** Load the image element for per-class CAM regeneration. */
+async function loadImageForCam(dataUrl: string): Promise<HTMLImageElement> {
+  const img = new Image();
+  await new Promise<void>((resolve, reject) => {
+    img.onload = () => resolve();
+    img.onerror = () => reject(new Error("Could not decode image for Grad-CAM."));
+    img.src = dataUrl;
+  });
+  return img;
+}
+
+/** Reproduce the pipeline's preprocessing for on-demand CAM regeneration. */
+async function tensorFromImage(img: HTMLImageElement): Promise<Float32Array> {
+  const { MODEL_INPUT_SIZE: S } = await import("@/lib/imaging/preprocessing");
+  const canvas = document.createElement("canvas");
+  canvas.width = S;
+  canvas.height = S;
+  const ctx = canvas.getContext("2d", { willReadFrequently: true })!;
+  ctx.drawImage(img, 0, 0, S, S);
+  const px = ctx.getImageData(0, 0, S, S).data;
+  const tensor = new Float32Array(S * S);
+  for (let i = 0; i < tensor.length; i++) {
+    const luma = (0.299 * px[i * 4] + 0.587 * px[i * 4 + 1] + 0.114 * px[i * 4 + 2]) / 255;
+    tensor[i] = (luma - 0.449) / 0.226;
+  }
+  return tensor;
 }
 
 function downloadFile(name: string, content: string, mime: string) {
@@ -179,6 +214,38 @@ interface DetailProps {
 export default function ImageDetailView({ image, analysis, modelName, fileName }: DetailProps) {
   const navigate = useNavigate();
   const [opacity, setOpacity] = useState(0.5);
+  const [camClass, setCamClass] = useState<ClassLabel | "">(analysis.heatmap?.targetClass ?? "");
+  const [camBusy, setCamBusy] = useState(false);
+  const [camDebug, setCamDebug] = useState<string | null>(null);
+  const [camError, setCamError] = useState<string | null>(null);
+  const [liveHeatmap, setLiveHeatmap] = useState(analysis.heatmap);
+
+  // Release the ONNX session when the page unmounts.
+  useEffect(() => () => disposeCamModel(), []);
+
+  /** Regenerate the CAM for a user-selected class (real per-class CAMs). */
+  const regenerateCam = async (cls: ClassLabel) => {
+    setCamBusy(true);
+    setCamError(null);
+    try {
+      const img = await loadImageForCam(image.dataUrl);
+      const tensor = await tensorFromImage(img);
+      const res = await generateRealGradCam(tensor, cls);
+      setLiveHeatmap(res.heatmap);
+      const d = res.debug;
+      setCamDebug(
+        `Predicted: ${d.predictedClass} (${(d.confidence * 100).toFixed(1)}%) · ` +
+          `Target: ${d.targetClass} (idx ${d.targetClassIndex}) · ` +
+          `Layer: ${d.selectedLayer} · ` +
+          `Activations ${d.activationShape} · CAM ${d.camShape} · ` +
+          `min ${Number(d.camMin).toFixed(3)} / max ${Number(d.camMax).toFixed(3)} / mean ${d.camMean.toFixed(3)}`,
+      );
+    } catch (err) {
+      setCamError(err instanceof Error ? err.message : "Grad-CAM failed.");
+    } finally {
+      setCamBusy(false);
+    }
+  };
 
   const a = analysis;
   const { panelNumber, gridPosition } = useMemo(() => panelInfo(image.source), [image.source]);
@@ -315,16 +382,16 @@ export default function ImageDetailView({ image, analysis, modelName, fileName }
                 <figcaption className="text-xs text-neutral-500 mt-1">Original</figcaption>
               </figure>
               <figure>
-                <img src={a.heatmap?.dataUrl ?? image.dataUrl} alt="Grad-CAM heatmap" className="w-full rounded-lg border border-neutral-200" />
+                <img src={liveHeatmap?.dataUrl ?? image.dataUrl} alt="Grad-CAM heatmap" className="w-full rounded-lg border border-neutral-200" />
                 <figcaption className="text-xs text-neutral-500 mt-1">
-                  Heatmap → target class {a.heatmap?.targetClass ?? "—"}
+                  Heatmap → target class {liveHeatmap?.targetClass ?? "—"}
                 </figcaption>
               </figure>
               <figure>
                 <div className="relative">
                   <img src={image.dataUrl} alt="Overlay base" className="w-full rounded-lg border border-neutral-200" />
                   <img
-                    src={a.heatmap?.dataUrl ?? ""}
+                    src={liveHeatmap?.dataUrl ?? ""}
                     alt="Overlay"
                     className="absolute inset-0 w-full h-full rounded-lg"
                     style={{ opacity, mixBlendMode: "multiply" }}
@@ -335,6 +402,10 @@ export default function ImageDetailView({ image, analysis, modelName, fileName }
                 </figcaption>
               </figure>
             </div>
+            <p className="text-xs text-neutral-500">
+              Overlay shown at {Math.round(opacity * 100)}% heatmap opacity over the unchanged
+              original MRI — same width and height, no stretching or rotation.
+            </p>
             <div>
               <label className="text-xs text-neutral-500 block mb-1">Overlay opacity</label>
               <input
@@ -347,18 +418,65 @@ export default function ImageDetailView({ image, analysis, modelName, fileName }
                 className="w-full accent-[#6C4AB6]"
               />
             </div>
+
+            {/* Per-class CAM regeneration + debug info */}
+            <div className="border-t border-neutral-100 pt-3 space-y-2">
+              <label className="text-xs font-medium text-neutral-500 uppercase tracking-wide block">
+                Explain a different class (real per-class CAM)
+              </label>
+              <div className="flex flex-wrap items-center gap-2">
+                {CLASS_LABELS.map((cls) => (
+                  <button
+                    key={cls}
+                    disabled={camBusy}
+                    onClick={() => {
+                      setCamClass(cls);
+                      void regenerateCam(cls);
+                    }}
+                    className={`px-3 py-1.5 text-xs rounded-md border transition-colors ${
+                      camClass === cls
+                        ? "bg-[#6C4AB6] text-white border-[#6C4AB6]"
+                        : "bg-white text-neutral-700 border-neutral-300 hover:border-[#6C4AB6] hover:text-[#6C4AB6]"
+                    } disabled:opacity-50`}
+                  >
+                    {cls}
+                  </button>
+                ))}
+                {camBusy && (
+                  <span className="text-xs text-[#6C4AB6] flex items-center gap-1">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" /> computing real CAM…
+                  </span>
+                )}
+              </div>
+              {camError && (
+                <div className="p-2 bg-red-50 border border-red-200 rounded text-xs text-red-700">
+                  Grad-CAM error: {camError}
+                </div>
+              )}
+              {camDebug && !camError && (
+                <div className="p-2 bg-neutral-50 border border-neutral-200 rounded font-mono text-[11px] text-neutral-600 break-words">
+                  {camDebug}
+                </div>
+              )}
+              {!camModelStatus().ready && !camDebug && (
+                <p className="text-xs text-[#E58A2B]">
+                  {camModelStatus().note}
+                </p>
+              )}
+            </div>
             <div className="p-3 bg-[#F3F6F9] rounded-lg text-xs text-neutral-600 space-y-1">
-              <p><span className="font-medium text-neutral-800">Model:</span> {modelName} (demo surrogate)</p>
+              <p><span className="font-medium text-neutral-800">Model:</span> BrainCamNet (real CNN, ONNX) — CAM from actual feature activations</p>
               <p>
                 <span className="font-medium text-neutral-800">Explanation status:</span>{" "}
                 {a.heatmap
-                  ? `generated for THIS image (${image.id}) — heatmap upsampled to ${image.width}×${image.height} for display, 224×224 model view`
+                  ? `real Grad-CAM for THIS image (${image.id}) — target class ${a.heatmap.targetClass}, CAM computed at 28×28 from the last conv feature map, upscaled to ${image.width}×${image.height} for display`
                   : "not generated"}
               </p>
               <p><span className="font-medium text-neutral-800">Preprocessing:</span> Luma → 224×224 bilinear → (x − 0.449) / 0.226</p>
               <p className="text-neutral-500">
-                Grad-CAM indicates model-attributed regions only. It does not prove tumour
-                location and is not an accurate tumour segmentation method.
+                Grad-CAM highlights image regions that contributed to the model's classification.
+                It is NOT tumour segmentation and does not provide exact tumour boundaries — that
+                would require a dedicated segmentation model (e.g. U-Net).
               </p>
             </div>
           </CardContent>
