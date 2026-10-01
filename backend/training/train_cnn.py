@@ -2,14 +2,17 @@
 train_cnn.py — train the browser CNN for real Grad-CAM and export to ONNX.
 
 Architecture (BrainCamNet): a small Conv/BN/ReLU CNN with a global average
-pool before the classifier. The last conv feature map (7×7×64 at 224 input)
-is the Grad-CAM target — exposed as an ONNX output so the browser runtime can
-compute a genuine activation-weighted CAM from real feature maps.
+pool before the classifier. The last conv feature map — block-5 Conv2d
+(Sequential index 16) followed by ReLU (index 18), 64 channels at 14×14 for a
+224 input — is the Grad-CAM target: it is the exact map the GAP→Linear head
+(index 21) pools, so class-channel weights are valid CAM alphas. It is exposed
+as an ONNX output so the browser runtime can compute a genuine
+activation-weighted CAM from real feature maps.
 
   input  : 1×1×224×224 float32 (luma, (x − 0.449) / 0.226 — same preprocessing
            as training and as the desktop backend)
   output : logits (1×4) ordered [Glioma, Meningioma, No Tumor, Pituitary]
-           + cam_features (1×64×7×7) — the Grad-CAM target activations
+           + cam_features (1×64×14×14) — the Grad-CAM target activations
 
 Training: Kaggle "Brain Tumor MRI Dataset" (masoudnickparvar), prepared by
 training/prepare_data.py. Class-weighted loss + augmentation; reaches
@@ -61,9 +64,9 @@ class BrainCamNet:
             nn.Conv2d(16, 32, 3, padding=1, bias=False), nn.BatchNorm2d(32), nn.ReLU(), nn.MaxPool2d(2),
             # block 3: 56 → 28
             nn.Conv2d(32, 64, 3, padding=1, bias=False), nn.BatchNorm2d(64), nn.ReLU(), nn.MaxPool2d(2),
-            # block 4 (Grad-CAM target): 28 → 14
+            # block 4: 28 → 14
             nn.Conv2d(64, 64, 3, padding=1, bias=False), nn.BatchNorm2d(64), nn.ReLU(), nn.MaxPool2d(2),
-            # block 5 (final conv feature map): 14 → 7
+            # block 5 (final conv feature map = Grad-CAM target): 14 → 14
             nn.Conv2d(64, 64, 3, padding=1, bias=False), nn.BatchNorm2d(64), nn.ReLU(),
             nn.AdaptiveAvgPool2d(1),
             nn.Flatten(),
@@ -170,7 +173,10 @@ def export_onnx(model, out_path: Path) -> None:
             super().__init__()
             self.m = m
             self.feats = None
-            self._hook = self.m[14].register_forward_hook(self._grab)
+            # Index 18 = block-5 ReLU: the LAST conv feature map (64×14×14),
+            # the one the GAP→Linear head (index 21) actually pools. Hooking an
+            # earlier map would make the exported alphas semantically wrong.
+            self._hook = self.m[18].register_forward_hook(self._grab)
 
         def _grab(self, _mod, _inp, out):
             self.feats = out
@@ -180,6 +186,7 @@ def export_onnx(model, out_path: Path) -> None:
             return logits, self.feats
 
     w = Wrapper(model)
+    w.eval()  # keep BatchNorm in eval mode inside the exported graph
     with torch.no_grad():
         torch.onnx.export(
             w,
@@ -188,23 +195,29 @@ def export_onnx(model, out_path: Path) -> None:
             input_names=["input"],
             output_names=["logits", "cam_features"],
             dynamic_axes={"input": {0: "batch"}, "logits": {0: "batch"}, "cam_features": {0: "batch"}},
-            opset_version=17,
+            opset_version=18,  # 17 triggers a failed downgrade attempt in torch's exporter
         )
     print(f"ONNX exported: {out_path} ({out_path.stat().st_size / 1024:.0f} KB)")
 
     # Torch ≥2.6 may store large initializers in an external .data file, which
-    # breaks single-file serving. Fold everything back into the protobuf.
+    # breaks single-file serving. Load with external data resolved, then ALWAYS
+    # rewrite with every initializer embedded (data_location=0, no external_data).
     import onnx
 
     m = onnx.load(str(out_path), load_external_data=True)
-    external = any(t.data_location == 1 for t in m.graph.initializer)
-    if external:
-        for t in m.graph.initializer:
-            t.data_location = 0
-            for e in list(t.external_data):
-                t.external_data.remove(e)
-        onnx.save(m, str(out_path))
-        print("folded external data → self-contained ONNX")
+    for t in m.graph.initializer:
+        t.data_location = 0
+        for e in list(t.external_data):
+            t.external_data.remove(e)
+    onnx.save(m, str(out_path))
+    # Hard guarantee: reload and assert nothing references an external file.
+    m2 = onnx.load(str(out_path), load_external_data=False)
+    dangling = [
+        t.name for t in m2.graph.initializer if t.data_location == 1 or t.external_data
+    ]
+    if dangling:
+        raise RuntimeError(f"ONNX still references external data: {dangling}")
+    print(f"self-contained ONNX confirmed ({out_path.stat().st_size / 1024:.0f} KB)")
 
 
 # ---------------------------------------------------------------------------
