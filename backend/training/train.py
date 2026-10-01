@@ -44,10 +44,22 @@ IMG_MEAN = 0.449
 IMG_STD = 0.226
 
 
-def build_model(num_classes: int = 4):
+def build_model(num_classes: int = 4, arch: str = "resnet50"):
     import torch
     import torch.nn as nn
     from torchvision import models
+
+    if arch == "small":
+        # Lightweight CNN — same I/O contract as ResNet-50 (1×224×224 in,
+        # 4 logits out). Used by the smoke test where a 2 GB memory budget
+        # cannot hold ResNet-50 training state.
+        return nn.Sequential(
+            nn.Conv2d(1, 16, 3, padding=1), nn.ReLU(), nn.MaxPool2d(2),
+            nn.Conv2d(16, 32, 3, padding=1), nn.ReLU(), nn.MaxPool2d(2),
+            nn.Conv2d(32, 64, 3, padding=1), nn.ReLU(), nn.AdaptiveAvgPool2d(1),
+            nn.Flatten(),
+            nn.Linear(64, num_classes),
+        )
 
     model = models.resnet50(weights=models.ResNet50_Weights.IMAGENET1K_V2)
     # Adapt first conv to single-channel (MRI luma) while keeping pretrained
