@@ -138,10 +138,11 @@ console.log(
   "| floats:", result.weights.length,
 );
 
-// Ground truth (python onnx, m.21.weight, row-major [4,64]):
-const truth00 = 0.12992662;
-const truth03 = -0.17019206;
-const truth30 = -0.09895292;
+// Ground truth (python onnx, m.21.weight, row-major [4,64]) — updated for the
+// random-lesion + CAM-localisation-loss model (cam_pipeline.py trainloc round).
+const truth00 = 0.10969571;
+const truth03 = -0.28248405;
+const truth30 = -0.32511464;
 const got = (r: number, c: number) => result.weights[r * 64 + c];
 console.log("w[0][0]:", got(0, 0).toFixed(8), "(expect", truth00 + ")");
 console.log("w[0][3]:", got(0, 3).toFixed(8), "(expect", truth03 + ")");

@@ -575,11 +575,16 @@ function renderHeatmap(
   const ctx = canvas.getContext("2d")!;
   const img = ctx.createImageData(dw, dh);
   for (let i = 0; i < dw * dh; i++) {
-    const [r, g, b] = jet(up[i]); // already 0..1 normalised
+    const v = up[i];
+    const [r, g, b] = jet(v);
+    // Alpha tracks CAM intensity with a soft floor: background (dark blue in
+    // the raw jet map) becomes transparent so the MRI shows through, like the
+    // classic Grad-CAM overlay. v=0 → invisible, v≥0.45 → fully opaque.
+    const alpha = Math.round(255 * Math.max(0, Math.min(1, (v - 0.06) / 0.39)));
     img.data[i * 4] = r;
     img.data[i * 4 + 1] = g;
     img.data[i * 4 + 2] = b;
-    img.data[i * 4 + 3] = 255;
+    img.data[i * 4 + 3] = alpha;
   }
   ctx.putImageData(img, 0, 0);
   return canvas.toDataURL("image/png");

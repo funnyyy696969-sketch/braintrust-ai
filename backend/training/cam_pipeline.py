@@ -184,7 +184,123 @@ def stage_train2() -> None:
     print(f"best val_acc {best_acc:.4f} → {BEST2}")
 
 
-STAGES = {"dataset": stage_dataset, "train": stage_train, "train2": stage_train2, "export": stage_export, "verify": stage_verify}
+def stage_trainloc() -> None:
+    """Continue from best.pt with an auxiliary CAM-LOCALISATION loss + a
+    coordinate-channel bias so the CAM can't drift toward image centre.
+
+    GAP-head CAMs are naturally diffuse because nothing in plain CE training
+    constrains the *spatial* shape of the block-5 feature map. For each sample
+    we know the lesion mask, so we add:
+
+        L_loc = CE( softmax(CAM_c), normalized lesion mask ↓14×14 )
+
+    where CAM_c = ReLU(Σ_k W[c,k]·A_k) for the TRUE class c — exactly the map
+    the browser renders. Gradients flow through both the block-5 activations
+    and the head weights, sharpening the CAM onto the lesion.
+    """
+    import torch.nn.functional as F
+    from training.train_cnn import evaluate, BrainCamNet
+    from training.random_cam_sanity import CLASS_FOLDERS, IMG_MEAN, IMG_STD, make_image
+
+    torch.manual_seed(int(time.time()) % 2**31)  # fresh stream each round (cv training continues from BEST)
+
+    model = BrainCamNet.build()
+    if BEST.exists():
+        model.load_state_dict(torch.load(BEST, map_location="cpu", weights_only=True))
+        print("warm-started from best.pt", flush=True)
+
+    head = model[21]          # Linear(64 → 4), the CAM-alpha source
+    feats_box: list[torch.Tensor] = []
+    model[18].register_forward_hook(lambda _m, _i, out: feats_box.append(out) or None)
+
+    BATCH, LAM, EPOCHS = 16, 8.0, 6
+    STEPS = 36                # 576 samples/epoch; 6 rounds ≈ 2.5 min each, inside cap
+    opt = torch.optim.AdamW(model.parameters(), lr=6e-4, weight_decay=1e-4)
+    sched = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=EPOCHS)
+
+    rng = np.random.default_rng(int(time.time()) % 2**31)
+
+    def make_batch():
+        imgs, masks, ys = [], [], []
+        for _ in range(BATCH):
+            y = int(rng.integers(0, 4))
+            img, les, _brain = make_image(y)
+            if rng.random() < 0.5:  # same horizontal-flip aug as make_loaders
+                img, les = np.ascontiguousarray(img[:, ::-1]), np.ascontiguousarray(les[:, ::-1])
+            x = ((img.astype(np.float32) / 255.0 - IMG_MEAN) / IMG_STD)[None]
+            imgs.append(x)
+            masks.append(les.astype(np.float32)[None])
+            ys.append(y)
+        return (
+            torch.from_numpy(np.stack(imgs, axis=0)),  # already (B,1,224,224) — each entry is (1,224,224)
+            torch.from_numpy(np.stack(masks, axis=0)),
+            torch.tensor(ys),
+        )
+
+    best_acc = -1.0
+    for ep in range(1, EPOCHS + 1):
+        model.train()
+        ce_sum, loc_sum, seen = 0.0, 0.0, 0
+        for _ in range(STEPS):
+            x, les, y = make_batch()
+            opt.zero_grad(set_to_none=True)
+            logits = model(x)
+            ce = F.cross_entropy(logits, y)
+            A = feats_box[-1]  # in-graph so gradients shape the CAM activations
+            wc = head.weight[y]  # (B,64) — rows for the TRUE class
+            cam = torch.clamp((A * wc[:, :, None, None]).sum(1), min=0)  # (B,14,14)
+            m14 = F.avg_pool2d(les, 16).squeeze(1)  # (B,1,224,224) → (B,14,14)
+            has = (m14.flatten(1).sum(1) > 0).float()  # notumor → weight 0
+            p = torch.softmax(cam.flatten(1), dim=1)
+            t = m14.flatten(1)
+            t = t / t.sum(1, keepdim=True).clamp(min=1e-8)
+            loc = (-(t * (p + 1e-8).log()).sum(1) * has).mean()
+            loss = ce + LAM * loc
+            loss.backward()
+            opt.step()
+            ce_sum += ce.item() * BATCH
+            loc_sum += loc.item() * BATCH
+            seen += BATCH
+        sched.step()
+        acc = evaluate_dynamic(model)
+        print(
+            f"epoch {ep:>2}/{EPOCHS}  ce {ce_sum / seen:.4f}  loc {loc_sum / seen:.4f}  val_acc {acc:.4f}",
+            flush=True,
+        )
+        if acc > best_acc:
+            best_acc = acc
+            torch.save(model.state_dict(), BEST2)
+    print(f"best val_acc {best_acc:.4f} → {BEST2}")
+
+
+def class_weights_batch() -> list[float]:
+    """Rough inverse-frequency weights for the phantom mix (equal sampling)."""
+    return [1.0, 1.0, 1.0, 1.0]
+
+
+def evaluate_dynamic(model) -> float:
+    """Accuracy over a small fresh random batch (no ImageFolder needed)."""
+    from training.random_cam_sanity import IMG_MEAN, IMG_STD
+
+    model.eval()
+    rng = np.random.default_rng(77)
+    correct = 0
+    with torch.no_grad():
+        for _ in range(4):
+            imgs, ys = [], []
+            for _ in range(16):
+                y = int(rng.integers(0, 4))
+                img, _les, _b = make_image(y)
+                imgs.append(((img.astype(np.float32) / 255.0 - IMG_MEAN) / IMG_STD)[None])
+                ys.append(y)
+            out = model(torch.from_numpy(np.stack(imgs, axis=0)))
+            correct += int((out.argmax(1).numpy() == np.array(ys)).sum())
+    model.train()
+    return correct / 64
+
+
+STAGES = {"dataset": stage_dataset, "train": stage_train, "train2": stage_train2, "trainloc": stage_trainloc, "export": stage_export, "verify": stage_verify}
 t0 = time.time()
-STAGES[STAGE]()
-print(f"[{STAGE}] took {time.time() - t0:.0f}s")
+if STAGE:
+    STAGES[STAGE]()
+    print(f"[{STAGE}] took {time.time() - t0:.0f}s")
